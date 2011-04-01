@@ -1,0 +1,6 @@
+*.pyc
+secrets.json
+*.log
+*.pid
+*.sqlite
+*/builder
