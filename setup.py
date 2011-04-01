@@ -25,7 +25,6 @@ setup(
     test_suite='mule.runtests.runtests',
     include_package_data=True,
     classifiers=[
-        'Framework :: Django',
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
         'Operating System :: OS Independent',

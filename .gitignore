@@ -4,3 +4,5 @@ secrets.json
 *.pid
 *.sqlite
 */builder
+*.egg
+*.egg-info
