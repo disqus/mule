@@ -16,6 +16,8 @@ class StartQueueServer(ShellCommand):
     name = 'start queue server'
     description = 'starting queue server'
     descriptionDone = 'started queue server'
+    flunkOnFailure = True
+    haltOnFailure = True
     
     def __init__(self, **kwargs):
         command = [
@@ -25,17 +27,23 @@ class StartQueueServer(ShellCommand):
             r'PATH=$PATH:$VENV/bin;',
 
             # Tell mule to start its queue server
-            r'mule start --host=%s:%s --pid=%s' % ('0.0.0.0', '9001', 'mule.pid'),
+            r'mule start --host=%s:%s --pid=%%(mulepid)s' % ('0.0.0.0', '9001',),
         ]
         
         kwargs['command'] = WithProperties("\n".join(command))
         
         ShellCommand.__init__(self, **kwargs)
+    
+    def start(self):
+        self.build.setProperty('mulepid', 'mule.pid', 'StartQueueServer')
+        ShellCommand.start(self)
 
 class StopQueueServer(ShellCommand):
-    name = 'start queue server'
-    description = 'starting queue server'
-    descriptionDone = 'started queue server'
+    name = 'stop queue server'
+    description = 'stopping queue server'
+    descriptionDone = 'stopped queue server'
+    flunkOnFailure = True
+    haltOnFailure = True
 
     def __init__(self, **kwargs):
         command = [
@@ -45,7 +53,7 @@ class StopQueueServer(ShellCommand):
             r'PATH=$PATH:$VENV/bin;',
 
             # Tell mule to start its queue server
-            r'mule stop --pid=%s' % ('mule.pid',),
+            r'mule stop --pid=%(mulepid)s',
 
         ]
         
@@ -54,12 +62,16 @@ class StopQueueServer(ShellCommand):
         ShellCommand.__init__(self, **kwargs)
 
 class ProcessQueue(Trigger):
-    name = 'publish queue'
-    description = 'publishing queue'
-    descriptionDone = 'published queue'
-    
     def __init__(self, schedulerNames=['run_tests'], waitForFinish=True, **kwargs):
-        Trigger.__init__(self, schedulerNames=schedulerNames, waitForFinish=waitForFinish, **kwargs)
+        kwargs.update({
+            'schedulerNames': schedulerNames,
+            'waitForFinish': waitForFinish,
+            'updateSourceStamp': True,
+            'flunkOnFailure': True,
+            'haltOnFailure': True,
+            'name': 'publish queue',
+        })
+        Trigger.__init__(self, **kwargs)
 
 class Bootstrap(ShellCommand):
     """
@@ -67,6 +79,9 @@ class Bootstrap(ShellCommand):
     """
     
     name = 'bootstrap'
+    description = 'bootstrap'
+    descriptionDone = 'bootstrapped'
+    
     flunkOnFailure = True
     haltOnFailure = True
     
@@ -126,8 +141,8 @@ class TestDisqus(Test):
     def __init__(self, verbosity=2, **kwargs):
         import uuid
         kwargs['command'] = [
-            '$PWD/env/bin/python'
-            'disqus/manage.py test',
+            '$PWD/env/bin/python',
+            '$PWD/disqus/manage.py test',
             '--settings=disqus.conf.settings.test',
             '--db-prefix=buildbot_%s' % uuid.uuid4().hex,
             '--xml',
