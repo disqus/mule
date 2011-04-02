@@ -16,11 +16,11 @@ class DisqusAuth(auth.AuthBase):
     implements(auth.IAuth)
     
     def user_has_access(self, user):
-        return False
+        return True
 
     def authenticate(self, username, password):
         # TODO:
-        return False
+        return True
         # from django.contrib.auth.models import User
         # try:
         #     user = User.objects.get(username=username)

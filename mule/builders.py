@@ -52,10 +52,10 @@ def get_next_collector_build(builder, requests):
             best = r
     return best
 
-def get_next_collector_slave(available_slaves):
+def get_next_collector_slave(builder, available_slaves):
     return available_slaves[0]
 
-def get_next_runner_slave(available_slaves):
+def get_next_runner_slave(builder, available_slaves):
     return available_slaves[0]
 
 def get_builders(giturl, slaves):
@@ -84,8 +84,7 @@ def make_collector_factory(giturl):
         Git(repourl=giturl, mode='copy'),
         buildsteps.Bootstrap(),
         buildsteps.UpdateVirtualenv(),
-        buildsteps.BuildQueue(),
-        buildsteps.RunQueueServer(),
+        buildsteps.StartQueueServer(),
         buildsteps.ProcessQueue(),
         buildsteps.StopQueueServer(),
     ])

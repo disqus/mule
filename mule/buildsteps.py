@@ -12,13 +12,54 @@ from buildbot.steps.shell import Test, ShellCommand
 from buildbot.steps.trigger import Trigger
 from buildbot.process.properties import WithProperties
 
+class StartQueueServer(ShellCommand):
+    name = 'start queue server'
+    description = 'starting queue server'
+    descriptionDone = 'started queue server'
+    
+    def __init__(self, **kwargs):
+        command = [
+            r'VENV=$PWD/env;',
+            
+            # Add our venv to sys path
+            r'PATH=$PATH:$VENV/bin;',
+
+            # Tell mule to start its queue server
+            r'mule start --host=%s:%s --pid=%s',
+        ]
+        
+        kwargs['command'] = WithProperties("\n".join(command))
+        
+        ShellCommand.__init__(self, **kwargs)
+
+class StopQueueServer(ShellCommand):
+    name = 'start queue server'
+    description = 'starting queue server'
+    descriptionDone = 'started queue server'
+
+    def __init__(self, **kwargs):
+        command = [
+            r'VENV=$PWD/env;',
+            
+            # Add our venv to sys path
+            r'PATH=$PATH:$VENV/bin;',
+
+            # Tell mule to start its queue server
+            r'mule stop --pid=%s',
+
+        ]
+        
+        kwargs['command'] = WithProperties("\n".join(command))
+        
+        ShellCommand.__init__(self, **kwargs)
+
 class ProcessQueue(Trigger):
     name = 'publish queue'
     description = 'publishing queue'
     descriptionDone = 'published queue'
     
-    def __init__(self, schedulerNames=['run_tests'], waitforFinish=True, **kwargs):
-        Trigger.__init__(self, **kwargs)
+    def __init__(self, schedulerNames=['run_tests'], waitForFinish=True, **kwargs):
+        Trigger.__init__(self, schedulerNames=schedulerNames, waitForFinish=waitForFinish, **kwargs)
 
 class Bootstrap(ShellCommand):
     """
@@ -34,12 +75,14 @@ class Bootstrap(ShellCommand):
             r'VENV=$PWD/env;',
             
             # Create or update the virtualenv
-            r'$PYTHON virtualenv.py --distribute --no-site-packages $VENV || exit 1;',
+            r'$PYTHON virtualenv --no-site-packages $VENV || exit 1;',
 
             # Reset $PYTHON and $PIP to the venv python
             r'PYTHON=$VENV/bin/python;',
             r'PIP=$VENV/bin/pip;',
         ]
+        
+        kwargs['command'] = WithProperties("\n".join(command))
         
         ShellCommand.__init__(self, **kwargs)
 
@@ -67,7 +110,6 @@ class UpdateVirtualenv(ShellCommand):
         command.append("$PIP install -q -E $VENV -r requirements/global.txt")
         command.append("$PIP install -q -E $VENV -r requirements/test.txt")
         command.append("$PYTHON setup.py --quiet develop")
-
         
         kwargs['command'] = WithProperties("\n".join(command))
         
@@ -87,7 +129,7 @@ class TestDisqus(Test):
             '$PWD/env/bin/python'
             'disqus/manage.py test',
             '--settings=disqus.conf.settings.test',
-            '--db-prefix=buildbot_%d' % uuid.uuid4().hex,
+            '--db-prefix=buildbot_%s' % uuid.uuid4().hex,
             '--xml',
             '--noinput',
             '--verbosity=%s' % verbosity,

@@ -12,11 +12,11 @@ def make_collector_scheduler(builders):
         name = 'collect_tests',
         branch = None,
         treeStableTimer = 10,
-        builderNames = ['collector']
+        builderNames = ['collector'],
     )
 
 def make_runner_scheduler(builders):
     return Triggerable(
         name = 'run_tests',
-        builderNames = ['runner']
+        builderNames = ['runner']*9,
     )

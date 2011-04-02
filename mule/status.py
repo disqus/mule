@@ -29,14 +29,14 @@ def get_status(secrets):
             )
         ),
    
-        words.IRC(
-            host = 'irc.freenode.net',
-            channels = ['#disqus'],
-            nick = 'dsq-buildbot',
-            password = str(secrets['irc']['password']),
-            notify_events = {
-                'successToFailure': True,
-                'failureToSuccess': True,
-            }
-        ),
+        # words.IRC(
+        #     host = 'irc.freenode.net',
+        #     channels = ['#disqus'],
+        #     nick = 'dsq-buildbot',
+        #     password = str(secrets['irc']['password']),
+        #     notify_events = {
+        #         'successToFailure': True,
+        #         'failureToSuccess': True,
+        #     }
+        # ),
     ]

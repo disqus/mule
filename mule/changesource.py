@@ -4,9 +4,13 @@ How changes get from Git into the buildbot.
 
 from buildbot.changes.gitpoller import GitPoller
 
-def get_change_source(giturl):
+import os.path
+
+def get_change_source(giturl, workpath):
     return GitPoller(
         repourl = giturl,
-        branch='master',
-        pollinterval=2, # 2 seconds
+        branch = 'master',
+        project = 'disqus',
+        workdir = os.path.join(workpath, 'disqus', 'repo'),
+        pollinterval = 2, # 2 seconds
     )
