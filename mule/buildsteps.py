@@ -25,7 +25,7 @@ class StartQueueServer(ShellCommand):
             r'PATH=$PATH:$VENV/bin;',
 
             # Tell mule to start its queue server
-            r'mule start --host=%s:%s --pid=%s',
+            r'mule start --host=%s:%s --pid=%s' % ('0.0.0.0', '9001', 'mule.pid'),
         ]
         
         kwargs['command'] = WithProperties("\n".join(command))
@@ -45,7 +45,7 @@ class StopQueueServer(ShellCommand):
             r'PATH=$PATH:$VENV/bin;',
 
             # Tell mule to start its queue server
-            r'mule stop --pid=%s',
+            r'mule stop --pid=%s' % ('mule.pid',),
 
         ]
         
