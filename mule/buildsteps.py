@@ -15,27 +15,27 @@ from buildbot.process.properties import WithProperties
 import zmq
 
 class StartQueueServer(ShellCommand):
-    name = 'start queue server'
-    description = 'starting queue server'
-    descriptionDone = 'started queue server'
+    name = 'start queue serve'
+    description = 'starting queue serve'
+    descriptionDone = 'started queue serve'
     flunkOnFailure = True
     haltOnFailure = True
     
     def __init__(self, **kwargs):
         command = [
-            r'VENV=$PWD/env;',
+            'VENV=$PWD/env;',
             
             # Add our venv to sys path
-            r'PATH=$PATH:$VENV/bin;',
+            'PATH=$PATH:$VENV/bin;',
             
             # Prepend our new $PYTHONPATH
-            r'PYTHONPATH=$VENV/lib/python2.6/site-packages:$PYTHONPATH;',
+            'PYTHONPATH=$VENV/lib/python2.6/site-packages:$PYTHONPATH;',
             
             # We need the django settings module setup to import
-            r'DJANGO_SETTINGS_MODULE=disqus.conf.settings.test',
+            'DJANGO_SETTINGS_MODULE=disqus.conf.settings.test',
 
             # Tell mule to start its queue server
-            r'mule start --host=%s:%s --pid=%%(mulepid)s $PWD/disqus' % ('0.0.0.0', '9001',),
+            'mule start --host=%s:%s --pid=%%(mulepid)s $PWD/disqus' % ('0.0.0.0', '9001',),
         ]
         
         kwargs['command'] = WithProperties("\n".join(command))
@@ -43,25 +43,25 @@ class StartQueueServer(ShellCommand):
         ShellCommand.__init__(self, **kwargs)
     
     def start(self):
-        self.build.setProperty('mulepid', 'mule.pid', 'StartQueueServer')
+        self.build.setProperty('mulepid', 'mule.pid', 'StartQueueServe')
         ShellCommand.start(self)
 
 class StopQueueServer(ShellCommand):
-    name = 'stop queue server'
-    description = 'stopping queue server'
-    descriptionDone = 'stopped queue server'
+    name = 'stop queue serve'
+    description = 'stopping queue serve'
+    descriptionDone = 'stopped queue serve'
     flunkOnFailure = True
     haltOnFailure = True
 
     def __init__(self, **kwargs):
         command = [
-            r'VENV=$PWD/env;',
+            'VENV=$PWD/env;',
             
             # Add our venv to sys path
-            r'PATH=$PATH:$VENV/bin;',
+            'PATH=$PATH:$VENV/bin;',
 
             # Tell mule to start its queue server
-            r'mule stop --pid=%(mulepid)s',
+            'mule stop --pid=%(mulepid)s',
 
         ]
         
@@ -95,14 +95,14 @@ class Bootstrap(ShellCommand):
     
     def __init__(self, **kwargs):
         command = [
-            r'VENV=$PWD/env;',
+            'VENV=$PWD/env;',
             
             # Create or update the virtualenv
-            r'virtualenv --no-site-packages $VENV || exit 1;',
+            'virtualenv --no-site-packages $VENV || exit 1;',
 
             # Reset $PYTHON and $PIP to the venv python
-            r'PYTHON=$VENV/bin/python;',
-            r'PIP=$VENV/bin/pip;',
+            'PYTHON=$VENV/bin/python;',
+            'PIP=$VENV/bin/pip;',
         ]
         
         kwargs['command'] = WithProperties("\n".join(command))
@@ -122,15 +122,18 @@ class UpdateVirtualenv(ShellCommand):
     
     def __init__(self, **kwargs):
         command = [
-            r'VENV=$PWD/env;',
+            'VENV=$PWD/env;',
 
             # Reset $PYTHON and $PIP to the venv python
-            r'PYTHON=$VENV/bin/python;',
-            r'PIP=$VENV/bin/pip;',
+            'PYTHON=$VENV/bin/python;',
+            'PIP=$VENV/bin/pip;',
+
+            # Install install mule dependancies
+            '$VENV/bin/easy_install unittest2',
+            
+            # Install database dependencies if needed.
+            '$VENV/bin/python setup.py develop',
         ]
-        
-        # Install database dependencies if needed.
-        command.append("$VENV/bin/python setup.py develop")
         
         kwargs['command'] = WithProperties("\n".join(command))
         
@@ -144,7 +147,7 @@ class TestDisqus(Test):
     """
     name = 'test'
         
-    def __init__(self, host, verbosity=2, **kwargs):
+    def __init__(self, verbosity=2, **kwargs):
         import uuid
         kwargs['command'] = [
             '$PWD/env/bin/python',
@@ -198,6 +201,7 @@ class TestDisqus(Test):
                     reply = client.recv()
                     if reply:
                         # TODO: this needs to run this job with no db setup/teardown
+                        print "I SHOULD BE TESTING", resp
                         TestDisqus.start(self)
                     else:
                         print 'E: malformed reply from server: %s' % reply

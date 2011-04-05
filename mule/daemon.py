@@ -46,6 +46,7 @@ class Daemon(object):
             self.check_pid_writable()
 
             # - daemonize
+            print "Forking process (pid %s)" % os.getpid()
             daemonize()
         except:
             self.logger.exception("failed to start due to an exception")
