@@ -20,7 +20,11 @@ setup(
     description = 'Utilities for sharding test cases in BuildBot',
     packages=find_packages(),
     zip_safe=False,
-    install_requires=[],
+    install_requires=[
+        'unittest2',
+        'twisted',
+        'pyzmq',
+    ],
     dependency_links=[],
     tests_require=tests_require,
     extras_require={'test': tests_require},

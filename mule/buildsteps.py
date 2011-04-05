@@ -12,6 +12,8 @@ from buildbot.steps.shell import Test, ShellCommand
 from buildbot.steps.trigger import Trigger
 from buildbot.process.properties import WithProperties
 
+import zmq
+
 class StartQueueServer(ShellCommand):
     name = 'start queue server'
     description = 'starting queue server'
@@ -25,9 +27,15 @@ class StartQueueServer(ShellCommand):
             
             # Add our venv to sys path
             r'PATH=$PATH:$VENV/bin;',
+            
+            # Prepend our new $PYTHONPATH
+            r'PYTHONPATH=$VENV/lib/python2.6/site-packages:$PYTHONPATH;',
+            
+            # We need the django settings module setup to import
+            r'DJANGO_SETTINGS_MODULE=disqus.conf.settings.test',
 
             # Tell mule to start its queue server
-            r'mule start --host=%s:%s --pid=%%(mulepid)s' % ('0.0.0.0', '9001',),
+            r'mule start --host=%s:%s --pid=%%(mulepid)s $PWD/disqus' % ('0.0.0.0', '9001',),
         ]
         
         kwargs['command'] = WithProperties("\n".join(command))
@@ -90,7 +98,7 @@ class Bootstrap(ShellCommand):
             r'VENV=$PWD/env;',
             
             # Create or update the virtualenv
-            r'$PYTHON virtualenv --no-site-packages $VENV || exit 1;',
+            r'virtualenv --no-site-packages $VENV || exit 1;',
 
             # Reset $PYTHON and $PIP to the venv python
             r'PYTHON=$VENV/bin/python;',
@@ -115,16 +123,14 @@ class UpdateVirtualenv(ShellCommand):
     def __init__(self, **kwargs):
         command = [
             r'VENV=$PWD/env;',
-            
+
             # Reset $PYTHON and $PIP to the venv python
             r'PYTHON=$VENV/bin/python;',
             r'PIP=$VENV/bin/pip;',
         ]
         
         # Install database dependencies if needed.
-        command.append("$PIP install -q -E $VENV -r requirements/global.txt")
-        command.append("$PIP install -q -E $VENV -r requirements/test.txt")
-        command.append("$PYTHON setup.py --quiet develop")
+        command.append("$VENV/bin/python setup.py develop")
         
         kwargs['command'] = WithProperties("\n".join(command))
         
@@ -138,7 +144,7 @@ class TestDisqus(Test):
     """
     name = 'test'
         
-    def __init__(self, verbosity=2, **kwargs):
+    def __init__(self, host, verbosity=2, **kwargs):
         import uuid
         kwargs['command'] = [
             '$PWD/env/bin/python',
@@ -162,3 +168,42 @@ class TestDisqus(Test):
         self.addSuppression([(None, "^test_", None, None)])
         
         self.addFactoryArguments(verbosity=verbosity)
+
+    def start(self):
+        def new_client(context, host):
+            client = context.socket(zmq.REQ)
+            client.connect('tcp://%s' % host)
+            return client
+
+        host = self.build.getProperty('mulehost')
+
+        context = zmq.Context()
+
+        client = new_client(context, host)
+
+        global_retries = 3
+        
+        # TODO: we should be setting up our database here
+        
+        while global_retries:
+            fetch_retries = 3
+            while fetch_retries:
+                fetch_retries -= 1
+                resp = client.send('GET')
+                poller = zmq.Poller()
+                poller.register(client, zmq.POLLIN)
+                socks = poller.poll()
+                # if we got a reply, process it
+                if socks:
+                    reply = client.recv()
+                    if reply:
+                        # TODO: this needs to run this job with no db setup/teardown
+                        TestDisqus.start(self)
+                    else:
+                        print 'E: malformed reply from server: %s' % reply
+                else:
+                    print 'W: no response from server, retrying...'
+                    client = new_client(context, host)
+                    client.send('GET')
+
+        # TODO: we should be tearing down our database here
