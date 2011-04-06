@@ -7,8 +7,9 @@ except ImportError:
     use_setuptools()
     from setuptools import setup, find_packages
 
-tests_require = []
+import os.path
 
+tests_require = []
 setup(
     name='Mule',
     version='1.0',
@@ -16,7 +17,7 @@ setup(
     author_email='opensource@disqus.com',
     url='http://github.com/disqus/mule',
     description = 'Utilities for sharding test cases in BuildBot',
-    packages=find_packages(),
+    packages=find_packages(os.path.dirname(__file__)),
     zip_safe=False,
     install_requires=[
         'unittest2',
