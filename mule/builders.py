@@ -13,8 +13,6 @@ The steps, then, are:
 
     * Checkout the repository.
     
-    * Bootstrap virtualenv.
-    
     * Create a virtualenv sandbox and install any extra prereqs (database
       modules, really).
       
@@ -82,7 +80,6 @@ def make_collector_factory(giturl):
     f = BuildFactory()
     f.addSteps([
         Git(repourl=giturl, mode='copy'),
-        buildsteps.Bootstrap(),
         buildsteps.UpdateVirtualenv(),
         buildsteps.StartQueueServer(),
         buildsteps.ProcessQueue(),
@@ -98,7 +95,6 @@ def make_runner_factory(giturl):
     f = BuildFactory()
     f.addSteps([
         Git(repourl=giturl, mode='copy'),
-        buildsteps.Bootstrap(),
         buildsteps.UpdateVirtualenv(),
         buildsteps.TestDisqus(verbosity=1),
     ])

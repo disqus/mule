@@ -70,7 +70,7 @@ class Server(Daemon):
 
         if not top_level_dir:
             top_level_dir = os.path.abspath(os.path.join(start_dir, os.pardir))
-            sys.path.insert(0, top_level_dir)
+            sys.path.insert(0, start_dir)
 
         VALID_MODULE_NAME = re.compile(r'[_a-z]\w*\.py$', re.IGNORECASE)
 
@@ -129,7 +129,12 @@ def start_server(pid, logfile, host, basedir, pattern='test*.py'):
     """
     Starts a TCP server for push/pull of the queue
     """
-    Server(pid, logfile).start(host=host, basedir=basedir, pattern=pattern)
+    print "Starting Mule server on %s" % host
+    server = Server(pid, logfile)
+    jobs = list(server.discover_tests(basedir, pattern))
+
+    print jobs
+    server.start(host=host, basedir=basedir, pattern=pattern)
 
 def stop_server(pid, logfile):
     """

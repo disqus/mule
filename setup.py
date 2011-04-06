@@ -7,7 +7,9 @@ except ImportError:
     use_setuptools()
     from setuptools import setup, find_packages
 
-scripts = ["bin/mule"]
+import os.path
+
+scripts = [os.path.realpath(os.path.join(os.path.dirname(__file__), "bin/mule"))]
 
 tests_require = []
 

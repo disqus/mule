@@ -14,6 +14,51 @@ from buildbot.process.properties import WithProperties
 
 import zmq
 
+class UpdateVirtualenv(ShellCommand):
+    """
+    Updates (or creates) the virtualenv, installing dependencies as needed.
+    """
+    
+    name = 'virtualenv setup'
+    description = 'updating env'
+    descriptionDone = 'updated env'
+    flunkOnFailure = True
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        kwargs['workdir'] = '.'
+        ShellCommand.__init__(self, **kwargs)
+
+    def start(self):
+        # XXX: Do we need to install Mule here as well?
+        
+        # set up self.command as a very long sh -c invocation
+        command = [
+            'export VE=$PWD/env',
+            
+            # Add our venv to sys path
+            'export PATH=$VE/bin:$PATH',
+            
+            # Adjust $PYTHON
+            'export PYTHON=$VE/bin/python',
+            
+            # Prepend our new $PYTHONPATH
+            'export PYTHONPATH=$VE/lib/python2.6/site-packages:$PYTHONPATH',
+        ]
+
+        # set up the virtualenv if it does not already exist
+        command.append("virtualenv --no-site-packages $VE || exit 1")
+
+        # HACK: local only, install mule
+        command.append("$PYTHON /Users/dcramer/Development/mule/setup.py install || exit 1")
+        # command.append("pip install Mule")
+
+        # Install our main package
+        command.append("$PYTHON $PWD/build/setup.py develop || exit 1")
+
+        self.command = ';\n'.join(command)
+        return ShellCommand.start(self)
+
 class StartQueueServer(ShellCommand):
     name = 'start queue serve'
     description = 'starting queue serve'
@@ -22,28 +67,34 @@ class StartQueueServer(ShellCommand):
     haltOnFailure = True
     
     def __init__(self, **kwargs):
-        command = [
-            'VENV=$PWD/env;',
-            
-            # Add our venv to sys path
-            'PATH=$PATH:$VENV/bin;',
-            
-            # Prepend our new $PYTHONPATH
-            'PYTHONPATH=$VENV/lib/python2.6/site-packages:$PYTHONPATH;',
-            
-            # We need the django settings module setup to import
-            'DJANGO_SETTINGS_MODULE=disqus.conf.settings.test',
-
-            # Tell mule to start its queue server
-            'mule start --host=%s:%s --pid=%%(mulepid)s $PWD/disqus' % ('0.0.0.0', '9001',),
-        ]
-        
-        kwargs['command'] = WithProperties("\n".join(command))
-        
+        kwargs['workdir'] = '.'
         ShellCommand.__init__(self, **kwargs)
     
     def start(self):
         self.build.setProperty('mulepid', 'mule.pid', 'StartQueueServe')
+        self.build.setProperty('mulehost', '0.0.0.0:9001', 'StartQueueServe')
+
+        command = [
+            'export VE=$PWD/env',
+            
+            # Add our venv to sys path
+            'export PATH=$VE/bin:$PATH',
+            
+            # Adjust $PYTHON
+            'export PYTHON=$VE/bin/python',
+            
+            # Prepend our new $PYTHONPATH
+            'export PYTHONPATH=$VE/lib/python2.6/site-packages:$PYTHONPATH',
+            
+            # We need the django settings module setup to import
+            'DJANGO_SETTINGS_MODULE=disqus.conf.settings.test',
+            
+            # Tell mule to start its queue server
+            'mule start --host=%(mulehost)s --pid=%(mulepid)s $PWD/build/disqus || exit 1',
+        ]
+        
+        self.command = WithProperties(";\n".join(command))
+        
         ShellCommand.start(self)
 
 class StopQueueServer(ShellCommand):
@@ -54,15 +105,16 @@ class StopQueueServer(ShellCommand):
     haltOnFailure = True
 
     def __init__(self, **kwargs):
+        kwargs['workdir'] = '.'
+        
         command = [
-            'VENV=$PWD/env;',
+            'VE=$PWD/env',
             
             # Add our venv to sys path
-            'PATH=$PATH:$VENV/bin;',
+            'PATH=$VE/bin:$PATH',
 
             # Tell mule to start its queue server
-            'mule stop --pid=%(mulepid)s',
-
+            'mule stop --pid=%(mulepid)s || exit 1',
         ]
         
         kwargs['command'] = WithProperties("\n".join(command))
@@ -78,68 +130,9 @@ class ProcessQueue(Trigger):
             'flunkOnFailure': True,
             'haltOnFailure': True,
             'name': 'publish queue',
+            'copy_properties': ['mulehost', 'mulepid']
         })
         Trigger.__init__(self, **kwargs)
-
-class Bootstrap(ShellCommand):
-    """
-    Updates (or creates) the virtualenv, installing dependencies as needed.
-    """
-    
-    name = 'bootstrap'
-    description = 'bootstrap'
-    descriptionDone = 'bootstrapped'
-    
-    flunkOnFailure = True
-    haltOnFailure = True
-    
-    def __init__(self, **kwargs):
-        command = [
-            'VENV=$PWD/env;',
-            
-            # Create or update the virtualenv
-            'virtualenv --no-site-packages $VENV || exit 1;',
-
-            # Reset $PYTHON and $PIP to the venv python
-            'PYTHON=$VENV/bin/python;',
-            'PIP=$VENV/bin/pip;',
-        ]
-        
-        kwargs['command'] = WithProperties("\n".join(command))
-        
-        ShellCommand.__init__(self, **kwargs)
-
-class UpdateVirtualenv(ShellCommand):
-    """
-    Updates (or creates) the virtualenv, installing dependencies as needed.
-    """
-    
-    name = 'virtualenv setup'
-    description = 'updating env'
-    descriptionDone = 'updated env'
-    flunkOnFailure = True
-    haltOnFailure = True
-    
-    def __init__(self, **kwargs):
-        command = [
-            'VENV=$PWD/env;',
-
-            # Reset $PYTHON and $PIP to the venv python
-            'PYTHON=$VENV/bin/python;',
-            'PIP=$VENV/bin/pip;',
-
-            # Install install mule dependancies
-            '$VENV/bin/easy_install unittest2',
-            
-            # Install database dependencies if needed.
-            '$VENV/bin/python setup.py develop',
-        ]
-        
-        kwargs['command'] = WithProperties("\n".join(command))
-        
-        ShellCommand.__init__(self, **kwargs)
-        
-        self.addFactoryArguments()
 
 class TestDisqus(Test):
     """
@@ -209,5 +202,7 @@ class TestDisqus(Test):
                     print 'W: no response from server, retrying...'
                     client = new_client(context, host)
                     client.send('GET')
+            global_retries -= 1
 
         # TODO: we should be tearing down our database here
+        pass
