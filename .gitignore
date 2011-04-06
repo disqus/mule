@@ -6,3 +6,4 @@ secrets.json
 */builder
 *.egg
 *.egg-info
+build/
