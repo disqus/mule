@@ -50,8 +50,7 @@ class UpdateVirtualenv(ShellCommand):
         command.append("virtualenv --no-site-packages $VE || exit 1")
 
         # HACK: local only, install mule
-        command.append("$PYTHON /Users/dcramer/Development/mule/setup.py install || exit 1")
-        # command.append("pip install Mule")
+        command.append("pip install Mule || exit 1")
 
         # Install our main package
         command.append("$PYTHON $PWD/build/setup.py develop || exit 1")
