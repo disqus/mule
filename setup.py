@@ -7,10 +7,6 @@ except ImportError:
     use_setuptools()
     from setuptools import setup, find_packages
 
-import os.path
-
-scripts = [os.path.realpath(os.path.join(os.path.dirname(__file__), "bin/mule"))]
-
 tests_require = []
 
 setup(
@@ -32,7 +28,11 @@ setup(
     extras_require={'test': tests_require},
     test_suite='mule.runtests.runtests',
     include_package_data=True,
-    scripts=scripts,
+    entry_points = {
+        'console_scripts': [
+            'mule = mule.scripts.runner:main',
+        ],
+    },
     classifiers=[
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
