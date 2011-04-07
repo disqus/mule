@@ -1,4 +1,4 @@
-from celery import task
+from celery.task import task
 
 import subprocess
 import shlex
