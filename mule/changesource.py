@@ -12,5 +12,5 @@ def get_change_source(giturl, workpath):
         branch = 'master',
         project = 'disqus',
         workdir = os.path.join(workpath, 'disqus', 'repo'),
-        pollinterval = 2, # 2 seconds
+        pollinterval = 20000, # 2 seconds
     )

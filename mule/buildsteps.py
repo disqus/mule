@@ -12,8 +12,6 @@ from buildbot.steps.shell import Test, ShellCommand
 from buildbot.steps.trigger import Trigger
 from buildbot.process.properties import WithProperties
 
-import zmq
-
 class UpdateVirtualenv(ShellCommand):
     """
     Updates (or creates) the virtualenv, installing dependencies as needed.
@@ -30,30 +28,29 @@ class UpdateVirtualenv(ShellCommand):
         ShellCommand.__init__(self, **kwargs)
 
     def start(self):
-        # XXX: Do we need to install Mule here as well?
-        
         # set up self.command as a very long sh -c invocation
         command = [
-            'export VE=$PWD/env',
+            'VE=$PWD/env',
             
             # Add our venv to sys path
-            'export PATH=$VE/bin:$PATH',
+            'PATH=$VE/bin:$PATH',
             
             # Adjust $PYTHON
-            'export PYTHON=$VE/bin/python',
+            'PYTHON=$VE/bin/python',
             
             # Prepend our new $PYTHONPATH
-            'export PYTHONPATH=$VE/lib/python2.6/site-packages:$PYTHONPATH',
+            'PYTHONPATH=$VE/lib/python2.6/site-packages:$PYTHONPATH',
         ]
 
         # set up the virtualenv if it does not already exist
         command.append("virtualenv --no-site-packages $VE || exit 1")
 
         # HACK: local only, install mule
-        command.append("pip install Mule || exit 1")
+        command.append("cd /Users/dcramer/Development/mule/ && $PYTHON setup.py develop && cd - || exit 1")
+        # command.append("pip install Mule || exit 1")
 
         # Install our main package
-        command.append("$PYTHON $PWD/build/setup.py develop || exit 1")
+        command.append("cd $PWD/build/ && $PYTHON setup.py develop && cd - || exit 1")
 
         self.command = ';\n'.join(command)
         return ShellCommand.start(self)
@@ -74,16 +71,13 @@ class StartQueueServer(ShellCommand):
         self.build.setProperty('mulehost', '0.0.0.0:9001', 'StartQueueServe')
 
         command = [
-            'export VE=$PWD/env',
+            'VE=$PWD/env',
             
             # Add our venv to sys path
-            'export PATH=$VE/bin:$PATH',
+            'PATH=$VE/bin:$PATH',
             
             # Adjust $PYTHON
-            'export PYTHON=$VE/bin/python',
-            
-            # Prepend our new $PYTHONPATH
-            'export PYTHONPATH=$VE/lib/python2.6/site-packages:$PYTHONPATH',
+            'PYTHON=$VE/bin/python',
             
             # We need the django settings module setup to import
             'DJANGO_SETTINGS_MODULE=disqus.conf.settings.test',
@@ -92,7 +86,7 @@ class StartQueueServer(ShellCommand):
             'mule start --host=%(mulehost)s --pid=%(mulepid)s $PWD/build/disqus || exit 1',
         ]
         
-        self.command = WithProperties(";\n".join(command))
+        self.command = WithProperties("\n".join(command))
         
         ShellCommand.start(self)
 
@@ -105,6 +99,7 @@ class StopQueueServer(ShellCommand):
 
     def __init__(self, **kwargs):
         kwargs['workdir'] = '.'
+        kwargs['alwaysRun'] = True
         
         command = [
             'VE=$PWD/env',
@@ -140,23 +135,10 @@ class TestDisqus(Test):
     name = 'test'
         
     def __init__(self, verbosity=2, **kwargs):
-        import uuid
-        kwargs['command'] = [
-            '$PWD/env/bin/python',
-            '$PWD/disqus/manage.py test',
-            '--settings=disqus.conf.settings.test',
-            '--db-prefix=buildbot_%s' % uuid.uuid4().hex,
-            '--xml',
-            '--noinput',
-            '--verbosity=%s' % verbosity,
-        ]
-        kwargs['env'] = {
-            'PYTHONPATH': '$PWD:$PWD/tests',
-            'LC_ALL': 'en_US.utf8',
-        }
-        
+        kwargs['workdir'] = '.'
+
         Test.__init__(self, **kwargs)
-        
+
         # Make sure not to spuriously count a warning from test cases
         # using the word "warning". So skip any "warnings" on lines starting
         # with "test_"
@@ -165,43 +147,36 @@ class TestDisqus(Test):
         self.addFactoryArguments(verbosity=verbosity)
 
     def start(self):
-        def new_client(context, host):
-            client = context.socket(zmq.REQ)
-            client.connect('tcp://%s' % host)
-            return client
-
-        host = self.build.getProperty('mulehost')
-
-        context = zmq.Context()
-
-        client = new_client(context, host)
-
-        global_retries = 3
+        import uuid
         
-        # TODO: we should be setting up our database here
-        
-        while global_retries:
-            fetch_retries = 3
-            while fetch_retries:
-                fetch_retries -= 1
-                resp = client.send('GET')
-                poller = zmq.Poller()
-                poller.register(client, zmq.POLLIN)
-                socks = poller.poll()
-                # if we got a reply, process it
-                if socks:
-                    reply = client.recv()
-                    if reply:
-                        # TODO: this needs to run this job with no db setup/teardown
-                        print "I SHOULD BE TESTING", resp
-                        TestDisqus.start(self)
-                    else:
-                        print 'E: malformed reply from server: %s' % reply
-                else:
-                    print 'W: no response from server, retrying...'
-                    client = new_client(context, host)
-                    client.send('GET')
-            global_retries -= 1
+        test_command = [
+            '$PWD/env/bin/python',
+            '$PWD/disqus/manage.py test',
+            '--settings=disqus.conf.settings.test',
+            '--db-prefix=buildbot_%(buildername)s_%(build_number)s',
+            '--xml',
+            '--noinput',
+            '--verbosity=%(verbosity)s',
+        ]
 
-        # TODO: we should be tearing down our database here
-        pass
+        command = [
+            'export VE=$PWD/env',
+            
+            # Add our venv to sys path
+            'export PATH=$VE/bin:$PATH',
+            
+            # Adjust $PYTHON
+            'export PYTHON=$VE/bin/python',
+            
+            # Prepend our new $PYTHONPATH
+            'export PYTHONPATH=$VE/lib/python2.6/site-packages:$PYTHONPATH',
+            
+            # Tell mule to start its queue server
+            'mule runtests --host=%%(mulehost)s $PWD/build/disqus %(command)s || exit 1' % dict(
+                command=test_command,
+            ),
+        ]
+        
+        self.command = WithProperties(";\n".join(command))
+        
+        ShellCommand.start(self)

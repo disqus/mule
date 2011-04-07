@@ -28,8 +28,9 @@ class Daemon(object):
         """Register the sigterm handler"""
         signal.signal(signal.SIGTERM, self.on_sigterm)
 
-    def start(self, **options):
+    def start(self, daemonize=True, **options):
         """Initialize and run the daemon"""
+        self.daemon = daemonize
         # The order of the steps below is chosen carefully.
         # - don't proceed if another instance is already running.
         self.check_pid()
@@ -44,10 +45,10 @@ class Daemon(object):
         self.start_logging()
         try:
             self.check_pid_writable()
-
-            # - daemonize
-            print "Forking process (pid %s)" % os.getpid()
-            daemonize()
+            if self.daemon:
+                # - daemonize
+                print "Forking process (pid %s)" % os.getpid()
+                daemonize()
         except:
             self.logger.exception("failed to start due to an exception")
             raise
@@ -114,8 +115,9 @@ class Daemon(object):
         handlers = []
         if self.logfile:
             handlers.append(logging.FileHandler(self.logfile))
-        # # also log to stderr
-        # handlers.append(logging.StreamHandler())
+        if not self.daemon:
+            # also log to stderr
+            handlers.append(logging.StreamHandler())
 
         self.logger = logging.getLogger(self.logger_name)
         self.logger.setLevel(level)

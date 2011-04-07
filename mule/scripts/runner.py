@@ -8,30 +8,50 @@ import sys
 import unittest
 import zmq
 
+import logging
+
 class Server(Daemon):
+    loglevel = logging.INFO
+    
     def run(self, host, basedir, pattern='test*.py'):
         host = host
         basedir = basedir
         pattern = pattern
 
+        self.logger.info("Beginning test discovery in %s matching %s" % (basedir, pattern))
+        
         jobs = list(self.discover_tests(basedir, pattern))
 
-        print "Found %d test cases" % len(jobs)
+        self.start_logging()
+
+        self.logger.info("Found %d test cases" % len(jobs))
 
         context = zmq.Context(1)
 
         server = context.socket(zmq.REP)
         server.bind('tcp://%s' % host)
 
-        while jobs:
+        workers = []
+
+        while workers or jobs:
             request = server.recv()
-
-            if request == 'GET':
+            
+            if request == 'CONN':
+                workers.append(1)
+                logging.info('Connection from foo')
+                server.send('READY', zmq.NOBLOCK)
+            elif request == 'GET' and jobs:
+                logging.info('GET request for %s' % request)
                 job = jobs.pop()
-
-                server.send('%s.%s' % (job.__module__, job.__name__))
+                server.send('RUN %s.%s' % (job.__module__, job.__name__), zmq.NOBLOCK)
+            elif request == 'GET':
+                workers.pop()
+                server.send('DONE', zmq.NOBLOCK)
             else:
-                server.send('ERR Unknown Command')
+                server.send('ERR Unknown Command', zmq.NOBLOCK)
+        
+        logging.info('finished')
+        server.close()
 
     def _match_path(self, path, full_path, pattern):
         # override this method to use alternative matching strategy
@@ -125,22 +145,62 @@ class Server(Daemon):
                 for test in self.discover_tests(full_path, pattern, top_level_dir):
                     yield test
 
-def start_server(pid, logfile, host, basedir, pattern='test*.py'):
+def start_server(pid, logfile, host, basedir, pattern='test*.py', foreground=False):
     """
     Starts a TCP server for push/pull of the queue
     """
-    print "Starting Mule server on %s" % host
+    print >>sys.stdout, "Starting Mule server on %s" % host
     server = Server(pid, logfile)
-    jobs = list(server.discover_tests(basedir, pattern))
 
-    print jobs
-    server.start(host=host, basedir=basedir, pattern=pattern)
+    server.start(host=host, basedir=basedir, pattern=pattern, daemonize=not int(foreground))
 
 def stop_server(pid, logfile):
     """
     Stops a queue server.
     """
     Server(pid, logfile).stop()
+
+
+def run_tests(host, command, logfile):
+    def new_client(context, host):
+        client = context.socket(zmq.REQ)
+        client.setsockopt(zmq.IDENTITY, 'runner')
+        client.connect('tcp://%s' % host)
+        return client
+
+    print >>sys.stdout, 'Connecting to Mule host on %s' % host
+
+    context = zmq.Context()
+
+    client = new_client(context, host)
+    global_retries = 3
+    
+    # TODO: we should be setting up our database here
+    
+    state = None
+    
+    fetch_retries = 3
+    while fetch_retries:
+        fetch_retries -= 1
+        if state == 'READY':
+            client.send('GET', zmq.NOBLOCK)
+        else:
+            client.send('CONN')
+        
+        parts = client.recv().split(' ', 1)
+        cmd = parts[0]
+        if cmd == 'RUN':
+            # TODO: this needs to run this job with no db setup/teardown
+            test = parts[1]
+            print "I should test", test
+            fetch_retries = 3
+        elif cmd == 'READY':
+            state = cmd
+        elif cmd == 'DONE':
+            state = cmd
+            break
+        else:
+            print 'E: malformed reply from server: %s' % reply
 
 class StartOptions(usage.Options):
     optParameters = [
@@ -151,9 +211,13 @@ class StartOptions(usage.Options):
         ["logfile", "l", "mule.log",
          "Specify the log file for the server."],
     ]
+    
+    optFlags = [
+        ["foreground", "n", "Run the process in the foreground (no daemon)."],
+    ]
 
     def getSynopsis(self):
-        return "Usage:    mule start [project] [options]"
+        return "Usage:    mule start [options] [project]"
 
     def parseArgs(self, *args):
         if len(args) > 0:
@@ -175,6 +239,22 @@ class StopOptions(usage.Options):
     def getSynopsis(self):
         return "Usage:    mule stop [options]"
 
+class RunTestsOptions(usage.Options):
+    optParameters = [
+        ["host", "h", "0.0.0.0:8011",
+         "Specify the host (and port) for the server."],
+        ["logfile", "l", "mule.log",
+         "Specify the log file for the server."],
+    ]
+
+    def getSynopsis(self):
+        return "Usage:    mule runtests [options] [test command]"
+
+    def parseArgs(self, *args):
+        if not args:
+            raise usage.UsageError("You must pass a command for to execute your test runner")
+        self['command'] = ' '.join(args)
+
 class Options(usage.Options):
     synopsis = "Usage:    mule <command> [command options]"
 
@@ -184,6 +264,8 @@ class Options(usage.Options):
          "Starts up a new queue (and server)"],
         ['stop', None, StopOptions,
          "Shuts down a running queue server"],
+        ['runtests', None, RunTestsOptions,
+         "Spawns a test runner which communicates with a Mule server"],
     ]
 
     def postOptions(self):
@@ -208,6 +290,8 @@ def main():
         start_server(**so)
     elif command == "stop":
         stop_server(**so)
+    elif command == "runtests":
+        run_tests(**so)
     sys.exit(0)
 
 if __name__ == '__main__':

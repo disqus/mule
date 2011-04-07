@@ -7,3 +7,4 @@ secrets.json
 *.egg
 *.egg-info
 build/
+dist/
