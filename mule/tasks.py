@@ -17,7 +17,7 @@ def run_test(build_id, runner, job):
     
     2. Run the given job (TestCase).
     """
-    print runner, job
     proc = subprocess.Popen(shlex.split(runner.replace('#TEST#', job)), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = proc.communicate()
     proc.wait()
+    return stdout.strip()

@@ -15,7 +15,7 @@ class TestRunner(object):
     def __init__(self):
         self.logger = logging.getLogger('mule.runner')
     
-    def start(self, runner, basedir, pattern='test*.py'):
+    def process(self, runner, basedir, pattern='test*.py'):
         basedir = basedir
         pattern = pattern
         
@@ -27,13 +27,18 @@ class TestRunner(object):
 
         self.logger.info("Found %d test cases" % len(jobs))
 
-        taskset = TaskSet(run_test.subtask(build_id, runner, job) for job in jobs)
+        taskset = TaskSet(run_test.subtask(
+            build_id=build_id,
+            runner=runner,
+            job='%s.%s' % (job.__module__, job.__name__)) for job in jobs)
         result = taskset.apply_async()
 
-        self.logger.info("Waiting for response..." % (basedir, pattern))
+        self.logger.info("Waiting for response...")
         response = result.join()
         
         self.logger.info('finished')
+        
+        return response
 
     def _match_path(self, path, full_path, pattern):
         # override this method to use alternative matching strategy

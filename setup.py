@@ -9,7 +9,9 @@ except ImportError:
 
 import os.path
 
-tests_require = []
+tests_require = [
+    'redis',
+]
 setup(
     name='Mule',
     version='1.0',
@@ -20,9 +22,9 @@ setup(
     packages=find_packages(),
     zip_safe=False,
     install_requires=[
+        'celery',
         'unittest2',
-        'twisted',
-        'pyzmq',
+        'uuid',
     ],
     dependency_links=[],
     tests_require=tests_require,

@@ -21,7 +21,7 @@ def main(*args):
     (options, args) = parser.parse_args()
     if args[0] == "test":
         runner = TestRunner()
-        runner.start(**options)
+        runner.process(**options)
     sys.exit(0)
 
 if __name__ == '__main__':
