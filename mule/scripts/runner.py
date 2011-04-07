@@ -4,6 +4,8 @@ from mule.daemon import Daemon
 from twisted.python import usage
 import os, os.path
 import re
+import shlex
+import subprocess
 import sys
 import unittest
 import zmq
@@ -192,7 +194,12 @@ def run_tests(host, command, logfile):
         if cmd == 'RUN':
             # TODO: this needs to run this job with no db setup/teardown
             test = parts[1]
-            print "I should test", test
+            print "Testing", test
+            proc = subprocess.Popen(shlex.split(command.replace('#TEST#', test)), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (stdout, stderr) = proc.communicate()
+            proc.wait()
+            if proc.returncode != 0:
+                print "ERROR:", stderr
             fetch_retries = 3
         elif cmd == 'READY':
             state = cmd
@@ -200,7 +207,7 @@ def run_tests(host, command, logfile):
             state = cmd
             break
         else:
-            print 'E: malformed reply from server: %s' % reply
+            print 'E: malformed reply from server: %s' % ' '.join(parts)
 
 class StartOptions(usage.Options):
     optParameters = [
