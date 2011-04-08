@@ -18,7 +18,7 @@ class Mule(object):
     def process(self, jobs, runner='python manage.py mtest #TEST#'):
         build_id = uuid.uuid4().hex
 
-        self.logger.info("Building queue of test jobs")
+        self.logger.info("Building queue of %d test jobs" % len(jobs))
         
         taskset = TaskSet(run_test.subtask(
             build_id=build_id,
@@ -27,7 +27,7 @@ class Mule(object):
         result = taskset.apply_async()
 
         self.logger.info("Waiting for response...")
-        response = result.join()
+        response = result.join(propagate=False)
         
         self.logger.info('finished')
         
