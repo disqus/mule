@@ -157,14 +157,16 @@ def make_suite_runner(parent):
             self.distributed = distributed
             self.worker = worker
 
-        def run_suite(self, suite, output):
-            kwargs = {
-                'output': output,
-            }
+        def run_suite(self, suite, output=None):
+            # XXX: output is only used by XML runner, pretty ugly
             if self.worker:
                 cls = XMLTestRunner
+                kwargs = {
+                    'output': output,
+                }
             else:
                 cls = TextTestRunner
+                kwargs = {}
 
             cls = make_test_runner(cls)
         
