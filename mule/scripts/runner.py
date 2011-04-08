@@ -23,7 +23,9 @@ def main():
     (options, args) = parser.parse_args()
     if args[0] == "test":
         mule = Mule()
-        print '\n'.join(mule.process(**options.__dict__))
+        jobs = mule.discover_tests(options.basedir)
+        print '\n'.join(mule.process(jobs, options.runner))
+
     sys.exit(0)
 
 if __name__ == '__main__':

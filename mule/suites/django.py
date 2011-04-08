@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import connections, router
 from django.db.models import get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner
+from mule.base import Mule
 
 from optparse import make_option
 
@@ -16,9 +17,11 @@ def make_test_runner(parent):
                         default='default'),
             make_option('--db-prefix', type='string', dest='db_prefix', default='test',
                         help='Prefix to use for test databases. Default is ``test``.'),
+            make_option('--distribute', dest='distribute', action='store_true',
+                        help='Fire test jobs off to Celery queue and collect results.'),
         ) + getattr(parent, 'options', ())
 
-        def __init__(self, auto_bootstrap=False, build_id='default', db_prefix='test', *args, **kwargs):
+        def __init__(self, auto_bootstrap=False, build_id='default', db_prefix='test', distribute=False, *args, **kwargs):
             super(DistributedDjangoTestSuiteRunner, self).__init__(
                 verbosity=int(kwargs['verbosity']),
                 failfast=kwargs['failfast'],
@@ -38,6 +41,8 @@ def make_test_runner(parent):
     
             if self.auto_bootstrap:
                 self.interactive = False
+            
+            self.distribute = distribute
 
         # def run_suite(self, suite):
         #     kwargs = {}
@@ -106,7 +111,15 @@ def make_test_runner(parent):
                 return
             return super(DistributedDjangoTestSuiteRunner, self).teardown_databases(*args, **kwargs)
     
+        def run_distributed_tests(self, test_labels, extra_tests=None, **kwargs):
+            mule = Mule()
+            result = mule.process(test_labels, runner='python manage.py mtest')
+            return '\n'.join(result)
+        
         def run_tests(self, test_labels, extra_tests=None, **kwargs):
+            if self.distribute:
+                return self.run_distributed_tests(test_labels, extra_tests=None, **kwargs)
+            
             self.setup_test_environment()
             suite = self.build_suite(test_labels, extra_tests)
 

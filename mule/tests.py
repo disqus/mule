@@ -12,9 +12,9 @@ class TestRunnerTestCase(unittest.TestCase):
 
     def test_process(self):
         mule = Mule()
-        result = mule.process('echo #TEST#', os.path.dirname(__file__))
-        self.assertGreater(len(result), 0)
-        self.assertTrue('mule.tests.TestRunnerTestCase' in result)
+        result = mule.process([self.__class__], 'echo #TEST#')
+        self.assertEquals(len(result), 1)
+        self.assertTrue('tests.TestRunnerTestCase' in result)
 
 class RunTestTestCase(unittest.TestCase):
     def test_subprocess(self):

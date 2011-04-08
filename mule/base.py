@@ -15,18 +15,11 @@ class Mule(object):
     def __init__(self):
         self.logger = logging.getLogger('mule')
     
-    def process(self, basedir, runner='python manage.py mtest #TEST#', pattern='test*.py'):
-        basedir = os.path.realpath(basedir)
-        pattern = pattern
-        
+    def process(self, jobs, runner='python manage.py mtest #TEST#'):
         build_id = uuid.uuid4().hex
 
-        self.logger.info("Beginning test discovery in %s matching %s" % (basedir, pattern))
+        self.logger.info("Building queue of test jobs")
         
-        jobs = list(self.discover_tests(basedir, pattern))
-
-        self.logger.info("Found %d test cases" % len(jobs))
-
         taskset = TaskSet(run_test.subtask(
             build_id=build_id,
             runner=runner,
@@ -74,6 +67,7 @@ class Mule(object):
 
         (Source: unittest2)
         """
+        start_dir = os.path.realpath(start_dir)
 
         if not top_level_dir:
             top_level_dir = os.path.abspath(os.path.join(start_dir, os.pardir))
