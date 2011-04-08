@@ -267,7 +267,7 @@ def make_suite_runner(parent):
         def run_distributed_tests(self, test_labels, extra_tests=None, **kwargs):
             build_id = uuid.uuid4().hex
             mule = Mule()
-            result = mule.process(test_labels, runner='python manage.py mtest --auto-bootstrap --worker --id=%s #TEST#' % build_id)
+            result = mule.process(test_labels, runner='python manage.py mule --auto-bootstrap --worker --id=%s #TEST#' % build_id)
             # result should now be some parseable text
             return result
         

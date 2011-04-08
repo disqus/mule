@@ -15,7 +15,7 @@ class Mule(object):
     def __init__(self):
         self.logger = logging.getLogger('mule')
     
-    def process(self, jobs, runner='python manage.py mtest #TEST#'):
+    def process(self, jobs, runner='unit2 #TEST#'):
         build_id = uuid.uuid4().hex
 
         self.logger.info("Building queue of %d test jobs" % len(jobs))
