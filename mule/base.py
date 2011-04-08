@@ -15,8 +15,8 @@ class Mule(object):
     def __init__(self):
         self.logger = logging.getLogger('mule')
     
-    def process(self, runner, basedir, pattern='test*.py'):
-        basedir = basedir
+    def process(self, basedir, runner='python manage.py mtest #TEST#', pattern='test*.py'):
+        basedir = os.path.realpath(basedir)
         pattern = pattern
         
         build_id = uuid.uuid4().hex
