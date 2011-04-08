@@ -87,6 +87,17 @@ def make_test_runner(parent):
             signals.post_syncdb.receivers = []
             result = super(DistributedDjangoTestSuiteRunner, self).setup_databases(*args, **kwargs)
             signals.post_syncdb.receivers = post_syncdb_receivers
+            
+            for app in get_apps():
+                for db in connections:
+                    all_models = [
+                        [(app.__name__.split('.')[-2],
+                            [m for m in get_models(app, include_auto_created=True)
+                            if router.allow_syncdb(db, m)])]
+                    ]
+                    signals.post_syncdb.send(app=app, created_models=all_models, verbosity=self.verbosity,
+                                             db=db, sender=app, interactive=False)
+            
             return result
     
         def teardown_databases(self, *args, **kwargs):
@@ -100,16 +111,6 @@ def make_test_runner(parent):
             suite = self.build_suite(test_labels, extra_tests)
 
             old_config = self.setup_databases()
-
-            for app in get_apps():
-                for db in connections:
-                    all_models = [
-                        [(app.__name__.split('.')[-2],
-                            [m for m in get_models(app, include_auto_created=True)
-                            if router.allow_syncdb(db, m)])]
-                    ]
-                    signals.post_syncdb.send(app=app, created_models=all_models, verbosity=self.verbosity,
-                                             db=db, sender=app, interactive=False)
 
             result = self.run_suite(suite)
 
