@@ -11,8 +11,6 @@ def main(*args):
 
     parser = OptionParser()
     if args[0] == 'test':
-        parser.add_option("-h", "--host", default="0.0.0.0:8011",
-                          help="Specify the host (and port) for the server.")
         parser.add_option("-b", "--basedir", default=".",
                           help="Specify the directory to discover tests from.")
         parser.add_option("-r", "--runner", default="unit2",
