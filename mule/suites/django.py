@@ -4,14 +4,19 @@
 
 from __future__ import absolute_import
 
+from cStringIO import StringIO
 from django.conf import settings
 from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner, TestCase, build_suite, reorder_suite
 from mule.base import Mule
+from mule.runners.xml import XMLTestRunner
+from mule.runners.text import TextTestRunner
 from optparse import make_option
 
+import signal
+import sys
 import types
 import uuid
 import unittest
@@ -60,7 +65,60 @@ def build_test(label):
     raise ValueError("Test label '%s' does not refer to a test" % label)
 
 def make_test_runner(parent):
-    class DistributedDjangoTestSuiteRunner(parent):
+    class new(parent):
+        def __init__(self, verbosity=0, failfast=False, pdb=False, **kwargs):
+            super(new, self).__init__(verbosity=verbosity, **kwargs)
+            self.failfast = failfast
+            self.pdb = pdb
+            self._keyboard_interrupt_intercepted = False
+
+        def run(self, *args, **kwargs):
+            """
+            Runs the test suite after registering a custom signal handler
+            that triggers a graceful exit when Ctrl-C is pressed.
+            """
+            self._default_keyboard_interrupt_handler = signal.signal(signal.SIGINT,
+                self._keyboard_interrupt_handler)
+            # post_test_setup.send(sender=self.__class__, runner=self)
+
+            try:
+                result = super(new, self).run(*args, **kwargs)
+            finally:
+                signal.signal(signal.SIGINT, self._default_keyboard_interrupt_handler)
+            return result
+
+        def _keyboard_interrupt_handler(self, signal_number, stack_frame):
+            """
+            Handles Ctrl-C by setting a flag that will stop the test run when
+            the currently running test completes.
+            """
+            self._keyboard_interrupt_intercepted = True
+            sys.stderr.write(" <Test run halted by Ctrl-C> ")
+            # Set the interrupt handler back to the default handler, so that
+            # another Ctrl-C press will trigger immediate exit.
+            signal.signal(signal.SIGINT, self._default_keyboard_interrupt_handler)
+
+        def _makeResult(self):
+            result = super(new, self)._makeResult()
+            failfast = self.failfast
+
+            def stoptest_override(func):
+                def stoptest(test):
+                    # If we were set to failfast and the unit test failed,
+                    # or if the user has typed Ctrl-C, report and quit
+                    if (failfast and not result.wasSuccessful()) or \
+                        self._keyboard_interrupt_intercepted:
+                        result.stop()
+                    func(test)
+                return stoptest
+
+            setattr(result, 'stopTest', stoptest_override(result.stopTest))
+            return result
+    new.__name__ = parent.__name__
+    return new
+
+def make_suite_runner(parent):
+    class new(parent):
         options = (
             make_option('--auto-bootstrap', dest='auto_bootstrap', action='store_true',
                         help='Bootstrap a new database automatically.'),
@@ -70,10 +128,13 @@ def make_test_runner(parent):
                         help='Prefix to use for test databases. Default is ``test``.'),
             make_option('--distributed', dest='distributed', action='store_true',
                         help='Fire test jobs off to Celery queue and collect results.'),
+            make_option('--worker', dest='worker', action='store_true',
+                        help='Identifies this runner as a worker of a distributed test runner.'),
         ) + getattr(parent, 'options', ())
 
-        def __init__(self, auto_bootstrap=False, build_id='default', db_prefix='test', distributed=False, *args, **kwargs):
-            super(DistributedDjangoTestSuiteRunner, self).__init__(
+        def __init__(self, auto_bootstrap=False, build_id='default', db_prefix='test', distributed=False, worker=False,
+                     *args, **kwargs):
+            super(new, self).__init__(
                 verbosity=int(kwargs['verbosity']),
                 failfast=kwargs['failfast'],
                 interactive=kwargs['interactive'],
@@ -94,17 +155,22 @@ def make_test_runner(parent):
                 self.interactive = False
             
             self.distributed = distributed
+            self.worker = worker
 
-        # def run_suite(self, suite):
-        #     kwargs = {}
-        #     if self.xml:
-        #         cls = XMLTestRunner
-        #         kwargs['output'] = settings.XML_OUTPUT
-        #     else:
-        #         cls = TextTestRunner
-        #     cls = make_django_test_runner(cls)
-        # 
-        #     return cls(verbosity=self.verbosity, failfast=self.failfast, pdb=self.pdb, **kwargs).run(suite)
+        def run_suite(self, suite, output):
+            kwargs = {
+                'output': output,
+            }
+            if self.worker:
+                cls = XMLTestRunner
+            else:
+                cls = TextTestRunner
+
+            cls = make_test_runner(cls)
+        
+            result = cls(verbosity=self.verbosity, failfast=self.failfast, **kwargs).run(suite)
+
+            return result
 
         def build_suite(self, test_labels, extra_tests=None, **kwargs):
             suite = unittest.TestSuite()
@@ -175,7 +241,7 @@ def make_test_runner(parent):
                 #       arent fully ready.
                 post_syncdb_receivers = signals.post_syncdb.receivers
                 signals.post_syncdb.receivers = []
-                result = super(DistributedDjangoTestSuiteRunner, self).setup_databases(*args, **kwargs)
+                result = super(new, self).setup_databases(*args, **kwargs)
                 signals.post_syncdb.receivers = post_syncdb_receivers
 
                 for app in get_apps():
@@ -194,15 +260,25 @@ def make_test_runner(parent):
             # If we were bootstrapping we dont tear down databases
             if self.auto_bootstrap:
                 return
-            return super(DistributedDjangoTestSuiteRunner, self).teardown_databases(*args, **kwargs)
+            return super(new, self).teardown_databases(*args, **kwargs)
     
         def run_distributed_tests(self, test_labels, extra_tests=None, **kwargs):
             build_id = uuid.uuid4().hex
             mule = Mule()
-            result = mule.process(test_labels, runner='python manage.py mtest --auto-bootstrap --id=%s #TEST#' % build_id)
-            return '\n'.join(result)
+            result = mule.process(test_labels, runner='python manage.py mtest --auto-bootstrap --worker --id=%s #TEST#' % build_id)
+            # result should now be some parseable text
+            return result
         
         def run_tests(self, test_labels, extra_tests=None, **kwargs):
+            # We need to swap stdout/stderr so that the task only captures what is needed,
+            # and everything else goes to our logs
+            if self.worker:
+                stderr, stdout = StringIO(), StringIO()
+                sys_stderr, sys_stdout = sys.stderr, sys.stdout
+                sys.stderr, sys.stdout = stderr, stdout
+            else:
+                sys_stderr, sys_stdout = sys.stderr, sys.stdout
+            
             self.setup_test_environment()
             suite = self.build_suite(test_labels, extra_tests)
             
@@ -212,11 +288,20 @@ def make_test_runner(parent):
                 result = self.run_distributed_tests(jobs, extra_tests=None, **kwargs)
             else:
                 old_config = self.setup_databases()
-                result = self.run_suite(suite)
+                result = self.run_suite(suite, output=sys_stdout)
                 self.teardown_databases(old_config)
 
             self.teardown_test_environment()
+            
+            if self.worker:
+                sys.stderr, sys.stdout = sys_stderr, sys_stdout
 
             return self.suite_result(suite, result)
-    return DistributedDjangoTestSuiteRunner
-DjangoTestSuiteRunner = make_test_runner(DjangoTestSuiteRunner)
+
+        def suite_result(self, suite, result, **kwargs):
+            if self.distributed:
+                return '\n'.join(result)
+            return super(new, self).suite_result(suite, result, **kwargs)
+    new.__name__ = parent.__name__
+    return new
+DjangoTestSuiteRunner = make_suite_runner(DjangoTestSuiteRunner)

@@ -20,15 +20,15 @@ def run_test(build_id, runner, job):
     
     2. Run the given job (TestCase).
     """
+    logger = run_test.get_logger()
     cmd = runner.replace('#TEST#', job).encode('utf-8')
-    print "Running job", cmd
+    logger.info('Job received: %s', cmd)
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = proc.communicate()
-    print stdout, stderr
     proc.wait()
     retcode = proc.returncode
     if retcode != 0:
         raise TestRunnerException(stderr)
-    
-    print "Finished!"
+
+    logger.info('Finished!')
     return stdout.strip()

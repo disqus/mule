@@ -4,8 +4,6 @@ Django Integration:
   all data in all tables and re-run syncdb (initial fixtures) each time.
   This same (bad) behavior needs to happen on every TestCase if not connections_support_transactions()
 
-Global:
-
 - Database name should create a lock. Multiple locks should be allowed which just says "if you're trying to execute
   and a lock exists, create a new database with a new lock". These should be incremental so other processes can find
   and reuse these databases.
