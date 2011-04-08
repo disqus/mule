@@ -1,6 +1,5 @@
-"""
-Adds support for options in child runners.
-"""
+from __future__ import absolute_import
+
 from django.conf import settings
 # from django.test.utils import get_runner
 from mule.suites.django import DjangoTestSuiteRunner
