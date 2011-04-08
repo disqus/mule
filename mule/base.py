@@ -9,11 +9,11 @@ from celery.task.sets import TaskSet
 from fnmatch import fnmatch
 from mule.tasks import run_test
 
-class TestRunner(object):
+class Mule(object):
     loglevel = logging.INFO
     
     def __init__(self):
-        self.logger = logging.getLogger('mule.runner')
+        self.logger = logging.getLogger('mule')
     
     def process(self, runner, basedir, pattern='test*.py'):
         basedir = basedir

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from optparse import OptionParser
-from mule.runner import TestRunner
+from mule.base import Mule
 
 import sys
 
@@ -20,8 +20,8 @@ def main(*args):
 
     (options, args) = parser.parse_args()
     if args[0] == "test":
-        runner = TestRunner()
-        runner.process(**options)
+        mule = Mule()
+        print '\n'.join(mule.process(**options))
     sys.exit(0)
 
 if __name__ == '__main__':
