@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 from django.conf import settings
 # from django.test.utils import get_runner
-from mule.suites.django import DjangoTestSuiteRunner
+from mule.contrib.django.suite import DjangoTestSuiteRunner
 
 if 'south' in settings.INSTALLED_APPS:
     from south.management.commands.test import Command as TestCommand
