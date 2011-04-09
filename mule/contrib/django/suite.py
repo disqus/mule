@@ -13,37 +13,38 @@ from django.test.simple import DjangoTestSuiteRunner, TestCase, build_suite, reo
 from mule.base import Mule
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner
+from mule.utils import import_string, acquire_lock, release_lock
 from optparse import make_option
 
+import os, os.path
 import signal
 import sys
 import types
 import uuid
 import unittest
 
-def import_string(import_name, silent=False):
-    """Imports an object based on a string. If *silent* is True the return
-    value will be None if the import fails.
+LOCK_DIR = '/var/tmp'
 
-    Simplified version of the function with same name from `Werkzeug`_.
-
-    :param import_name:
-        The dotted name for the object to import.
-    :param silent:
-        If True, import errors are ignored and None is returned instead.
-    :returns:
-        The imported object.
-    """
-    import_name = str(import_name)
-    try:
-        if '.' in import_name:
-            module, obj = import_name.rsplit('.', 1)
-            return getattr(__import__(module, None, None, [obj]), obj)
+def get_database_lock(build_id):
+    # XXX: Pretty sure this needs try/except to stop race condition
+    db_num = 0
+    while True:
+        lock_file = lock_for_database(build_id, db_num)
+        try:
+            acquire_lock(lock_file)
+        except IOError:
+            # lock unavailable
+            db_num += 1
         else:
-            return __import__(import_name)
-    except (ImportError, AttributeError):
-        if not silent:
-            raise
+            break
+    return db_num
+
+def release_database_lock(build_id, db_num):
+    lock_file = lock_for_database(build_id, db_num)
+    release_lock(lock_file)
+
+def lock_for_database(build_id, db_num=0):
+    return os.path.join(LOCK_DIR, 'mule.contrib.django:db_%s_%s' % (build_id, db_num))
 
 def build_test(label):
     """Construct a test case with the specified label. Label should be of the
@@ -142,21 +143,14 @@ def make_suite_runner(parent):
             self.auto_bootstrap = auto_bootstrap
             self.build_id = build_id
 
-            db_prefix = '%s_%s_' % (db_prefix, build_id)
-            
-            for k, v in settings.DATABASES.iteritems():
-                # If TEST_NAME wasnt set, or we've set a non-default prefix
-                if 'TEST_NAME' not in v or self.auto_bootstrap:
-                    settings.DATABASES[k]['TEST_NAME'] = db_prefix + settings.DATABASES[k]['NAME']
-
-            self.db_prefix = db_prefix
-    
             if self.auto_bootstrap:
                 self.interactive = False
+
+            self.db_prefix = db_prefix
             
             self.distributed = distributed
             self.worker = worker
-
+    
         def run_suite(self, suite, output=None):
             # XXX: output is only used by XML runner, pretty ugly
             if self.worker:
@@ -266,12 +260,29 @@ def make_suite_runner(parent):
     
         def run_distributed_tests(self, test_labels, extra_tests=None, **kwargs):
             build_id = uuid.uuid4().hex
-            mule = Mule()
+            mule = Mule(build_id=build_id)
             result = mule.process(test_labels, runner='python manage.py mule --auto-bootstrap --worker --id=%s #TEST#' % build_id)
             # result should now be some parseable text
             return result
         
-        def run_tests(self, test_labels, extra_tests=None, **kwargs):
+        def run_tests(self, *args, **kwargs):
+            db_num = get_database_lock(self.build_id)
+            
+            try:
+                db_prefix = '%s_%s_%s_' % (self.db_prefix, self.build_id, db_num)
+
+                for k, v in settings.DATABASES.iteritems():
+                    # If TEST_NAME wasnt set, or we've set a non-default prefix
+                    if 'TEST_NAME' not in v or self.auto_bootstrap:
+                        settings.DATABASES[k]['TEST_NAME'] = db_prefix + settings.DATABASES[k]['NAME']
+
+                self.db_prefix = db_prefix
+
+                self._run_tests(*args, **kwargs)
+            finally:
+                release_database_lock(self.build_id, db_num)
+        
+        def _run_tests(self, test_labels, extra_tests=None, **kwargs):
             # We need to swap stdout/stderr so that the task only captures what is needed,
             # and everything else goes to our logs
             if self.worker:

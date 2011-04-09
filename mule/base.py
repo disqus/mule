@@ -12,22 +12,29 @@ from mule.tasks import run_test
 class Mule(object):
     loglevel = logging.INFO
     
-    def __init__(self):
+    def __init__(self, build_id=None):
+        if not build_id:
+            build_id = uuid.uuid4().hex
+        
+        self.build_id = build_id
+        
         self.logger = logging.getLogger('mule')
     
     def process(self, jobs, runner='unit2 #TEST#'):
-        build_id = uuid.uuid4().hex
+        self.logger.info("Processing build %s", self.build_id)
 
-        self.logger.info("Building queue of %d test jobs" % len(jobs))
+        self.logger.info("Building queue of %d test jobs", len(jobs))
         
         taskset = TaskSet(run_test.subtask(
-            build_id=build_id,
+            build_id=self.build_id,
             runner=runner,
             job='%s.%s' % (job.__module__, job.__name__)) for job in jobs)
         result = taskset.apply_async()
 
         self.logger.info("Waiting for response...")
-        response = result.join(propagate=False)
+        response = result.join()
+        # propagate=False ensures we get *all* responses
+        # response = result.join(propagate=False)
         
         self.logger.info('finished')
         

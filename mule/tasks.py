@@ -4,7 +4,13 @@ import subprocess
 import shlex
 
 class TestRunnerException(Exception):
-    pass
+    def __init__(self, retcode, stdout, stderr):
+        self.retcode = retcode
+        self.stdout = stdout
+        self.stderr = stderr
+    
+    def __str__(self):
+        return '<%s: retcode=%s, stdout=%s, stderr=%s>' % (self.__class__.__name__, self.retcode, self.stdout, self.stderr)
 
 @task(ignore_result=False)
 def run_test(build_id, runner, job):
@@ -28,7 +34,9 @@ def run_test(build_id, runner, job):
     proc.wait()
     retcode = proc.returncode
     if retcode != 0:
-        raise TestRunnerException(stderr)
+        exc = TestRunnerException(retcode=str(retcode), stdout=str(stdout or ''), stderr=str(stderr or ''))
+        logger.error(str(exc))
+        raise exc
 
     logger.info('Finished!')
     return stdout.strip()
