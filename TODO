@@ -7,3 +7,5 @@ Django Integration:
 - Database name should create a lock. Multiple locks should be allowed which just says "if you're trying to execute
   and a lock exists, create a new database with a new lock". These should be incremental so other processes can find
   and reuse these databases.
+ 
+- suite_result needs to correctly handle Exceptions as if they were exceptions during the test process
