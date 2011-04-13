@@ -35,7 +35,7 @@ class ThreadPool:
     
     def add(self, func, *args, **kwargs):
         """Add a task to the queue"""
-        self.tasks.put((func, args, kwargs, id(self)), False)
+        self.tasks.put((func, args, kwargs, id(self)))
 
     def join(self):
         """Wait for completion of all the tasks in the queue"""
