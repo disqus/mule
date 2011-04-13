@@ -10,6 +10,7 @@ from celery.task.control import inspect, broadcast
 from celery.task.sets import TaskSet
 from fnmatch import fnmatch
 from mule.tasks import run_test
+from mule.utils.multithreading import ThreadPool
 
 class Mule(object):
     loglevel = logging.INFO
@@ -32,7 +33,7 @@ class Mule(object):
         while not actual:
             # We need to determine which queues are available to use
             i = inspect()
-            active_queues = i.active_queues() or []
+            active_queues = i.active_queues() or {}
         
             if not active_queues:
                 self.logger.error('No queue workers available, retrying in 1s')
@@ -48,10 +49,11 @@ class Mule(object):
                 continue
         
             response = {}
-            for r in broadcast('mule_provision', arguments={'build_id': self.build_id}, destination=available[:self.max_workers], reply=True):
+            for r in broadcast('mule_provision', arguments={'build_id': self.build_id},
+                               destination=available[:self.max_workers], reply=True, timeout=0):
                 response.update(r)
         
-            actual = [host for host, message in response.iteritems() if message['status'] == 'ok']
+            actual = [host for host, message in response.iteritems() if message.get('status') == 'ok']
         
             if not actual:
                 # TODO: we should probably sleep/retry (assuming there were *any* workers)
@@ -87,7 +89,7 @@ class Mule(object):
         finally:
             self.logger.info("Tearing down %d worker(s)", len(actual))
 
-            broadcast('mule_teardown', arguments={'build_id': self.build_id}, destination=actual, reply=True)
+            broadcast('mule_teardown', arguments={'build_id': self.build_id}, destination=actual, reply=False)
         
         self.logger.info('Finished')
         
@@ -185,3 +187,30 @@ class Mule(object):
                 # recurse into the package
                 for test in self.discover_tests(full_path, pattern, top_level_dir):
                     yield test
+
+class MultiProcessMule(Mule):
+    def process(self, jobs, runner='unit2 #TEST#'):
+        self.logger.info("Processing build %s", self.build_id)
+
+        self.logger.info("Provisioning %d worker(s)", self.max_workers)
+        
+        pool = ThreadPool(self.max_workers)
+
+        self.logger.info("Building queue of %d test job(s)", len(jobs))
+
+        for job in jobs:
+            pool.add(run_test, self.build_id, runner, '%s.%s' % (job.__module__, job.__name__))
+
+        self.logger.info('%d worker(s) provisioned', self.max_workers)
+
+        self.logger.info("Waiting for response...")
+
+        response = pool.join()
+
+        self.logger.info("Tearing down %d worker(s)", self.max_workers)
+
+        # TODO
+        
+        self.logger.info('Finished')
+        
+        return response

@@ -27,7 +27,7 @@ def mule_provision(panel, build_id):
          - Setting up a virtualenv
          - Building our DB
     """
-    queue = 'mule-%s' % build_id
+    queue_name = 'mule-%s' % build_id
 
     cset = panel.consumer.task_consumer
     
@@ -36,8 +36,10 @@ def mule_provision(panel, build_id):
     
     cset.cancel_by_queue('default')
     
-    declaration = dict(queue=queue, exchange_type='direct')
-    cset.add_consumer_from_dict(**declaration)
+    declaration = dict(queue=queue_name, exchange_type='direct')
+    queue = cset.add_consumer_from_dict(**declaration)
+    # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
+    queue(channel).declare()
     cset.consume()
     panel.logger.info("Started consuming from %r" % (declaration, ))
 
@@ -64,6 +66,8 @@ def mule_teardown(panel, build_id):
     
     # Join the default queue
     cset.add_consumer_from_dict(queue='default')
+    # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
+    cset.declare()
     cset.consume()
 
     panel.logger.info("Rejoined default queue")

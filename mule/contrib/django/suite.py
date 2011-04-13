@@ -11,7 +11,7 @@ from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner, TestCase, build_suite, reorder_suite
-from mule.base import Mule
+from mule.base import Mule, MultiProcessMule
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner
 from mule.utils import import_string, acquire_lock, release_lock
@@ -130,12 +130,14 @@ def make_suite_runner(parent):
                         help='Prefix to use for test databases. Default is ``test``.'),
             make_option('--distributed', dest='distributed', action='store_true',
                         help='Fire test jobs off to Celery queue and collect results.'),
+            make_option('--multiprocess', dest='multiprocess', action='store_true',
+                        help='Spawns multiple processes (controlled within threads) to test concurrently.'),
             make_option('--worker', dest='worker', action='store_true',
                         help='Identifies this runner as a worker of a distributed test runner.'),
         ) + getattr(parent, 'options', ())
 
         def __init__(self, auto_bootstrap=False, build_id='default', db_prefix='test', distributed=False, worker=False,
-                     *args, **kwargs):
+                     multiprocess=False, *args, **kwargs):
             super(new, self).__init__(
                 verbosity=int(kwargs['verbosity']),
                 failfast=kwargs['failfast'],
@@ -149,8 +151,11 @@ def make_suite_runner(parent):
 
             self.db_prefix = db_prefix
             
+            assert not (distributed and worker and multiprocess), "You cannot combine --distributed, --worker, and --multiprocess"
+            
             self.distributed = distributed
             self.worker = worker
+            self.multiprocess = multiprocess
     
         def run_suite(self, suite, output=None):
             # XXX: output is only used by XML runner, pretty ugly
@@ -264,9 +269,13 @@ def make_suite_runner(parent):
                 return
             return super(new, self).teardown_databases(*args, **kwargs)
     
-        def run_distributed_tests(self, test_labels, extra_tests=None, **kwargs):
+        def run_distributed_tests(self, test_labels, extra_tests=None, in_process=False, **kwargs):
+            if in_process:
+                cls = MultiProcessMule
+            else:
+                cls = Mule
             build_id = uuid.uuid4().hex
-            mule = Mule(build_id=build_id)
+            mule = cls(build_id=build_id)
             result = mule.process(test_labels, runner='python manage.py mule --auto-bootstrap --worker --id=%s #TEST#' % build_id)
             # result should now be some parseable text
             return result
@@ -303,10 +312,10 @@ def make_suite_runner(parent):
             self.setup_test_environment()
             suite = self.build_suite(test_labels, extra_tests)
             
-            if self.distributed:
+            if self.distributed or self.multiprocess:
                 # we can only test whole TestCase's currently
                 jobs = set(t.__class__ for t in suite._tests)
-                result = self.run_distributed_tests(jobs, extra_tests=None, **kwargs)
+                result = self.run_distributed_tests(jobs, extra_tests=None, in_process=self.multiprocess, **kwargs)
             else:
                 old_config = self.setup_databases()
                 result = self.run_suite(suite, output=sys_stdout)
@@ -320,9 +329,12 @@ def make_suite_runner(parent):
             return self.suite_result(suite, result)
 
         def suite_result(self, suite, result, **kwargs):
-            if self.distributed:
+            if self.distributed or self.multiprocess:
                 return result
             return super(new, self).suite_result(suite, result, **kwargs)
+
     new.__name__ = parent.__name__
+
     return new
+
 DjangoTestSuiteRunner = make_suite_runner(DjangoTestSuiteRunner)
