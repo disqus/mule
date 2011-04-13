@@ -85,7 +85,7 @@ class Mule(object):
             response = result.join(propagate=False)
         
         finally:
-            self.logger.info("Tearing down %d workers", len(actual))
+            self.logger.info("Tearing down %d worker(s)", len(actual))
 
             broadcast('mule_teardown', arguments={'build_id': self.build_id}, destination=actual, reply=True)
         

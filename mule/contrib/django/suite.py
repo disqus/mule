@@ -284,9 +284,11 @@ def make_suite_runner(parent):
 
                 self.db_prefix = db_prefix
 
-                self._run_tests(*args, **kwargs)
+                result = self._run_tests(*args, **kwargs)
             finally:
                 release_database_lock(self.build_id, db_num)
+            
+            return result
         
         def _run_tests(self, test_labels, extra_tests=None, **kwargs):
             # We need to swap stdout/stderr so that the task only captures what is needed,
@@ -314,7 +316,6 @@ def make_suite_runner(parent):
             
             if self.worker:
                 sys.stderr, sys.stdout = sys_stderr, sys_stdout
-                print stderr.getvalue(), stdout.getvalue()
 
             return self.suite_result(suite, result)
 
