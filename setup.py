@@ -11,6 +11,7 @@ import os.path
 
 tests_require = [
     'redis',
+    'unittest2',
 ]
 setup(
     name='Mule',
@@ -23,7 +24,6 @@ setup(
     zip_safe=False,
     install_requires=[
         'celery',
-        'unittest2',
         'uuid',
     ],
     dependency_links=[],
