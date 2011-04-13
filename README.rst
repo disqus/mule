@@ -13,3 +13,12 @@ Basic flow (assuming Django):
 
 6. When all processes have returned (or timed out), mule fires <max_workers> "teardown" tasks.
    This task does database cleanup and other things (configurable), and also leaves "mule-<build_id>" and rejoins "default".
+
+
+How to dynamically create queue:
+
+- Worker.init_queues (worker.use_queues)
+
+Ways to "reset" state after modifying queue:
+
+- Consumer.reset_connection

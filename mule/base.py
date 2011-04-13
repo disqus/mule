@@ -2,9 +2,11 @@ import os, os.path
 import logging
 import re
 import sys
+import time
 import unittest
 import uuid
 
+from celery.task.control import inspect, broadcast
 from celery.task.sets import TaskSet
 from fnmatch import fnmatch
 from mule.tasks import run_test
@@ -12,31 +14,82 @@ from mule.tasks import run_test
 class Mule(object):
     loglevel = logging.INFO
     
-    def __init__(self, build_id=None):
+    def __init__(self, build_id=None, max_workers=4):
         if not build_id:
             build_id = uuid.uuid4().hex
         
         self.build_id = build_id
-        
+        self.max_workers = max_workers
         self.logger = logging.getLogger('mule')
     
     def process(self, jobs, runner='unit2 #TEST#'):
         self.logger.info("Processing build %s", self.build_id)
 
-        self.logger.info("Building queue of %d test jobs", len(jobs))
+        self.logger.info("Provisioning %d worker(s)", self.max_workers)
         
-        taskset = TaskSet(run_test.subtask(
-            build_id=self.build_id,
-            runner=runner,
-            job='%s.%s' % (job.__module__, job.__name__)) for job in jobs)
-        result = taskset.apply_async()
+        actual = None
+        
+        while not actual:
+            # We need to determine which queues are available to use
+            i = inspect()
+            active_queues = i.active_queues() or []
+        
+            if not active_queues:
+                self.logger.error('No queue workers available, retrying in 1s')
+                time.sleep(1)
+                continue
+            
+            available = [host for host, queues in active_queues.iteritems() if 'default' in [q['name'] for q in queues]]
+        
+            if not available:
+                # TODO: we should probably sleep/retry (assuming there were *any* workers)
+                self.logger.info('All workers are busy, retrying in 1s')
+                time.sleep(1)
+                continue
+        
+            response = {}
+            for r in broadcast('mule_provision', arguments={'build_id': self.build_id}, destination=available[:self.max_workers], reply=True):
+                response.update(r)
+        
+            actual = [host for host, message in response.iteritems() if message['status'] == 'ok']
+        
+            if not actual:
+                # TODO: we should probably sleep/retry (assuming there were *any* workers)
+                self.logger.info('Failed to provision workers (busy), retrying in 1s')
+                time.sleep(1)
+                continue
+        
+        if len(actual) != len(available):
+            # We should begin running tests and possibly add more, but its not a big deal
+            pass
 
-        self.logger.info("Waiting for response...")
-        response = result.join()
-        # propagate=False ensures we get *all* responses
-        # response = result.join(propagate=False)
+        self.logger.info('%d worker(s) provisioned', len(actual))
+            
+        self.logger.info("Building queue of %d test job(s)", len(jobs))
         
-        self.logger.info('finished')
+        try:
+            taskset = TaskSet(run_test.subtask(
+                build_id=self.build_id,
+                runner=runner,
+                job='%s.%s' % (job.__module__, job.__name__),
+                options={
+                    # 'routing_key': 'mule-%s' % self.build_id,
+                    'queue': 'mule-%s' % self.build_id,
+                    # 'exchange': 'mule-%s' % self.build_id,
+                }) for job in jobs)
+            result = taskset.apply_async()
+
+            self.logger.info("Waiting for response...")
+            # response = result.join()
+            # propagate=False ensures we get *all* responses        
+            response = result.join(propagate=False)
+        
+        finally:
+            self.logger.info("Tearing down %d workers", len(actual))
+
+            broadcast('mule_teardown', arguments={'build_id': self.build_id}, destination=actual, reply=True)
+        
+        self.logger.info('Finished')
         
         return response
 

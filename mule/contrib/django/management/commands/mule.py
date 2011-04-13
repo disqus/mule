@@ -33,10 +33,12 @@ class Command(TestCommand):
                 'Function-based test runners are deprecated. Test runners should be classes with a run_tests() method.',
                 PendingDeprecationWarning
             )
-            failures = TestRunner(test_labels, **options)
+            result = TestRunner(test_labels, **options)
         else:
             test_runner = TestRunner(**options)
-            failures = test_runner.run_tests(test_labels)
+            result = test_runner.run_tests(test_labels)
 
-        if failures:
-            sys.exit(bool(failures))
+        print result
+
+        if result:
+            sys.exit(bool(result))

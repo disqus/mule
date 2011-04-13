@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 from cStringIO import StringIO
 from django.conf import settings
+from django.core.management import call_command
 from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
@@ -213,6 +214,7 @@ def make_suite_runner(parent):
                     except Exception, e:
                         pass
                     else:
+                        cursor.execute("DROP DATABASE %s" % (qn(test_database_name),))
                         bootstrap = True
                     finally:
                         cursor.close()
@@ -232,6 +234,7 @@ def make_suite_runner(parent):
                         can_rollback = connection.creation._rollback_works()
                         connection.settings_dict["SUPPORTS_TRANSACTIONS"] = can_rollback
                 result = None
+                call_command('flush')
             else:
                 # HACK: We need to kill post_syncdb receivers to stop them from sending when the databases
                 #       arent fully ready.
@@ -240,15 +243,18 @@ def make_suite_runner(parent):
                 result = super(new, self).setup_databases(*args, **kwargs)
                 signals.post_syncdb.receivers = post_syncdb_receivers
 
-                for app in get_apps():
-                    for db in connections:
-                        all_models = [
-                            [(app.__name__.split('.')[-2],
-                                [m for m in get_models(app, include_auto_created=True)
-                                if router.allow_syncdb(db, m)])]
-                        ]
-                        signals.post_syncdb.send(app=app, created_models=all_models, verbosity=self.verbosity,
-                                                 db=db, sender=app, interactive=False)
+
+            # XXX: we could truncate all tables in the teardown phase and
+            #      run the syncdb steps on each iteration (to ensure compatibility w/ transactions)
+            for app in get_apps():
+                for db in connections:
+                    all_models = [
+                        [(app.__name__.split('.')[-2],
+                            [m for m in get_models(app, include_auto_created=True)
+                            if router.allow_syncdb(db, m)])]
+                    ]
+                    signals.post_syncdb.send(app=app, created_models=all_models, verbosity=self.verbosity,
+                                             db=db, sender=app, interactive=False)
             
             return result
     
@@ -308,12 +314,13 @@ def make_suite_runner(parent):
             
             if self.worker:
                 sys.stderr, sys.stdout = sys_stderr, sys_stdout
+                print stderr.getvalue(), stdout.getvalue()
 
             return self.suite_result(suite, result)
 
         def suite_result(self, suite, result, **kwargs):
             if self.distributed:
-                return '\n'.join(result)
+                return result
             return super(new, self).suite_result(suite, result, **kwargs)
     new.__name__ = parent.__name__
     return new
