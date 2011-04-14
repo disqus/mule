@@ -1,7 +1,12 @@
+General:
+
+- Build a JSONTestRunner
+
+- run_test would be awesome if it expected a JSON result from the test runner (or at least our runners gave it that)
+  we could then store additional data like "I did this as part of the build" including timing/profiling data
+
 Django Integration:
 
 - There seems to be a race condition still with getting database locks and we get a "cannot create database, already exists"
 
 - The short version of app names doesnt work currently. e.g. forums.TestCase
-
-- Build a JSONTestRunner
