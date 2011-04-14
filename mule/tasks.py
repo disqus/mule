@@ -1,5 +1,6 @@
 from celery.task import task
 from celery.worker.control import Panel
+from mule import conf
 
 import os
 import subprocess
@@ -19,14 +20,14 @@ def mule_provision(panel, build_id):
          - Setting up a virtualenv
          - Building our DB
     """
-    queue_name = 'mule-%s' % build_id
+    queue_name = '%s-%s' % (conf.BUILD_QUEUE_PREFIX, build_id)
 
     cset = panel.consumer.task_consumer
     
-    if 'default' not in [q.name for q in cset.queues]:
+    if conf.DEFAULT_QUEUE not in [q.name for q in cset.queues]:
         return {"fail": "worker is already in use"}
     
-    cset.cancel_by_queue('default')
+    cset.cancel_by_queue(conf.DEFAULT_QUEUE)
     
     declaration = dict(queue=queue_name, exchange_type='direct')
     queue = cset.add_consumer_from_dict(**declaration)
@@ -55,13 +56,13 @@ def mule_teardown(panel, build_id):
 
     2. Leaves the build-specific queue, and joins the default Mule queue.
     """
-    queue = 'mule-%s' % build_id
+    queue_name = '%s-%s' % (conf.BUILD_QUEUE_PREFIX, build_id)
 
     cset = panel.consumer.task_consumer
 
-    cset.cancel_by_queue(queue)
+    cset.cancel_by_queue(queue_name)
     
-    cset.add_consumer_from_dict(queue='default')
+    queue = cset.add_consumer_from_dict(queue=conf.DEFAULT_QUEUE)
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
     channel = cset.channel
     queue(channel).declare()

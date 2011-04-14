@@ -347,6 +347,7 @@ def make_suite_runner(parent):
                 # We have JSON results to deal with
                 failures, errors = 0, 0
                 for r in result:
+                    print repr(r)
                     if r['retcode'] == 0:
                         continue
                     # XXX: stdout (which is our result) is in XML, which sucks

@@ -9,6 +9,7 @@ import uuid
 from celery.task.control import inspect, broadcast
 from celery.task.sets import TaskSet
 from fnmatch import fnmatch
+from mule import conf
 from mule.tasks import run_test
 from mule.utils.multithreading import ThreadPool
 
@@ -40,7 +41,7 @@ class Mule(object):
                 time.sleep(1)
                 continue
             
-            available = [host for host, queues in active_queues.iteritems() if 'default' in [q['name'] for q in queues]]
+            available = [host for host, queues in active_queues.iteritems() if conf.DEFAULT_QUEUE in [q['name'] for q in queues]]
         
             if not available:
                 # TODO: we should probably sleep/retry (assuming there were *any* workers)

@@ -1,0 +1,2 @@
+DEFAULT_QUEUE = 'default'
+BUILD_QUEUE_PREFIX = 'mule'
