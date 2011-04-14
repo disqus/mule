@@ -30,7 +30,11 @@ def mule_provision(panel, build_id):
     declaration = dict(queue=queue_name, exchange_type='direct')
     queue = cset.add_consumer_from_dict(**declaration)
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    queue(cset.channel).declare()
+    channel = cset.connection.channel()
+    try:
+        queue(channel).declare()
+    finally:
+        channel.close()
     cset.consume()
     panel.logger.info("Started consuming from %r" % (declaration, ))
 
@@ -52,13 +56,15 @@ def mule_teardown(panel, build_id):
 
     cset = panel.consumer.task_consumer
 
-    # Cancel our build-specific queue
     cset.cancel_by_queue(queue)
     
-    # Join the default queue
     cset.add_consumer_from_dict(queue='default')
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    cset.declare()
+    channel = cset.connection.channel()
+    try:
+        queue(channel).declare()
+    finally:
+        channel.close()
     cset.consume()
 
     panel.logger.info("Rejoined default queue")
@@ -75,7 +81,7 @@ def run_test(build_id, runner, job):
     Spawns a test runner and reports the result.
     """
     logger = run_test.get_logger()
-    cmd = 'TEST=%(job)s %(runner)s' % dict(
+    cmd = 'export TEST=%(job)s; %(runner)s' % dict(
         job=job.encode('utf-8'),
         runner=runner.encode('utf-8'),
     )
