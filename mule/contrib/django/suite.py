@@ -344,7 +344,16 @@ def make_suite_runner(parent):
 
         def suite_result(self, suite, result, **kwargs):
             if self.distributed or self.multiprocess:
-                return result
+                # We have JSON results to deal with
+                failures, errors = 0, 0
+                for r in result:
+                    if r['retcode'] == 0:
+                        continue
+                    # XXX: stdout (which is our result) is in XML, which sucks
+                    match = re.find(r['stdout'], r'errors="(\d+)" failures="(\d+)"')
+                    errors += int(match.get(1))
+                    failures += int(match.get(2))
+                return failures + errors
             return super(new, self).suite_result(suite, result, **kwargs)
 
     new.__name__ = parent.__name__

@@ -3,3 +3,5 @@ Django Integration:
 - There seems to be a race condition still with getting database locks and we get a "cannot create database, already exists"
 
 - The short version of app names doesnt work currently. e.g. forums.TestCase
+
+- Build a JSONTestRunner

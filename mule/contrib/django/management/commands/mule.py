@@ -38,7 +38,5 @@ class Command(TestCommand):
             test_runner = TestRunner(**options)
             result = test_runner.run_tests(test_labels)
 
-        print result
-
         if result:
             sys.exit(bool(result))
