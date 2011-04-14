@@ -19,7 +19,7 @@ setup(
     author='DISQUS',
     author_email='opensource@disqus.com',
     url='http://github.com/disqus/mule',
-    description = 'Utilities for sharding test cases in BuildBot',
+    description = 'Distributed Testing',
     packages=find_packages(),
     zip_safe=False,
     install_requires=[
