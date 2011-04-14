@@ -81,12 +81,10 @@ def run_test(build_id, runner, job):
     Spawns a test runner and reports the result.
     """
     logger = run_test.get_logger()
-    cmd = 'export TEST=%(job)s; %(runner)s' % dict(
-        job=job.encode('utf-8'),
-        runner=runner.encode('utf-8'),
-    )
+    cmd = runner.encode('utf-8')
     logger.info('Job received: %s', cmd)
-    proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            env={'TEST': job})
     (stdout, stderr) = proc.communicate()
     proc.wait()
     retcode = proc.returncode
