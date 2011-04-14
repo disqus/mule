@@ -1,6 +1,7 @@
 from celery.task import task
 from celery.worker.control import Panel
 
+import os
 import subprocess
 import shlex
 
@@ -30,11 +31,13 @@ def mule_provision(panel, build_id):
     declaration = dict(queue=queue_name, exchange_type='direct')
     queue = cset.add_consumer_from_dict(**declaration)
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    channel = cset.connection.channel()
-    try:
-        queue(channel).declare()
-    finally:
-        channel.close()
+    channel = cset.channel
+    queue(channel).declare()
+    # channel = cset.connection.channel()
+    # try:
+    #     queue(channel).declare()
+    # finally:
+    #     channel.close()
     cset.consume()
     panel.logger.info("Started consuming from %r" % (declaration, ))
 
@@ -60,11 +63,13 @@ def mule_teardown(panel, build_id):
     
     cset.add_consumer_from_dict(queue='default')
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    channel = cset.connection.channel()
-    try:
-        queue(channel).declare()
-    finally:
-        channel.close()
+    channel = cset.channel
+    queue(channel).declare()
+    # channel = cset.connection.channel()
+    # try:
+    #     queue(channel).declare()
+    # finally:
+    #     channel.close()
     cset.consume()
 
     panel.logger.info("Rejoined default queue")
@@ -81,20 +86,29 @@ def run_test(build_id, runner, job):
     Spawns a test runner and reports the result.
     """
     logger = run_test.get_logger()
-    cmd = runner.encode('utf-8')
+    
+    # TODO: we shouldnt need to do this, bash should do it
+    cmd = runner.encode('utf-8').replace('$TEST', job.encode('utf-8'))
+
     logger.info('Job received: %s', cmd)
+
+    # Setup our environment variables
+    env = os.environ.copy()
+    env['TEST'] = job.encode('utf-8')
+    
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            env={'TEST': job})
+                            env=env)
+
     (stdout, stderr) = proc.communicate()
     proc.wait()
     retcode = proc.returncode
 
     return {
-        "stdout": stdout,
-        "stderr": stderr,
         "retcode": retcode,
         "build_id": build_id,
         "job": job,
+        "stdout": stdout,
+        "stderr": stderr,
     }
 
     logger.info('Finished!')

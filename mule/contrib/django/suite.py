@@ -233,6 +233,8 @@ def make_suite_runner(parent):
 
             if not bootstrap:
                 # Ensure we setup ``SUPPORTS_TRANSACTIONS``
+                old_names = []
+                mirrors = []
                 for alias in connections:
                     connection = connections[alias]
 
@@ -240,27 +242,24 @@ def make_suite_runner(parent):
                     connection.settings_dict['NAME'] = connection.settings_dict['TEST_NAME']
                     settings.DATABASES[alias]['NAME'] = settings.DATABASES[alias]['TEST_NAME']
 
-                    if not connection.settings_dict['TEST_MIRROR']:
-                        # Clear out the existing data
-                        # XXX: we can probably isolate this based on TestCase.multi_db
-                        call_command('flush', verbosity=self.verbosity, interactive=self.interactive, database=alias)
+                    # Ensure we end up on the correct database
+                    connection.close()
 
-            if not bootstrap:
-                result = super(new, self).setup_databases(*args, **kwargs)
-            else:
-                # Ensure we setup ``SUPPORTS_TRANSACTIONS``
-                for alias in connections:
-                    connection = connections[alias]
                     if connection.settings_dict['TEST_MIRROR']:
+                        mirrors.append((alias, connection))
                         mirror_alias = connection.settings_dict['TEST_MIRROR']
                         connections._connections[alias] = DatabaseProxy(connections[mirror_alias], alias)
                     else:
+                        old_names.append((connection, connection.settings_dict['NAME']))
                         can_rollback = connection.creation._rollback_works()
                         connection.settings_dict['SUPPORTS_TRANSACTIONS'] = can_rollback
-                result = None
+                        # Clear out the existing data
+                        # XXX: we can probably isolate this based on TestCase.multi_db
+                        call_command('flush', verbosity=self.verbosity, interactive=self.interactive, database=alias)
+            else:
+                old_names, mirrors = super(new, self).setup_databases(*args, **kwargs)
             
             signals.post_syncdb.receivers = post_syncdb_receivers
-
 
             # XXX: we could truncate all tables in the teardown phase and
             #      run the syncdb steps on each iteration (to ensure compatibility w/ transactions)
@@ -274,7 +273,7 @@ def make_suite_runner(parent):
                     signals.post_syncdb.send(app=app, created_models=all_models, verbosity=self.verbosity,
                                              db=db, sender=app, interactive=False)
             
-            return result
+            return old_names, mirrors
     
         def teardown_databases(self, *args, **kwargs):
             # If we were bootstrapping we dont tear down databases
@@ -316,9 +315,11 @@ def make_suite_runner(parent):
             # We need to swap stdout/stderr so that the task only captures what is needed,
             # and everything else goes to our logs
             if self.worker:
-                #stderr, stdout = StringIO(), StringIO()
+                stderr, stdout = StringIO(), StringIO()
                 sys_stderr, sys_stdout = sys.stderr, sys.stdout
-                #sys.stderr, sys.stdout = stderr, stdout
+                sys.stderr, sys.stdout = stderr, stdout
+            else:
+                sys_stdout = sys.stdout
             
             self.setup_test_environment()
             suite = self.build_suite(test_labels, extra_tests)
@@ -329,14 +330,16 @@ def make_suite_runner(parent):
                 result = self.run_distributed_tests(jobs, extra_tests=None, in_process=self.multiprocess, **kwargs)
             else:
                 old_config = self.setup_databases()
-                result = self.run_suite(suite, output=sys_stdout)
-                self.teardown_databases(old_config)
+                try:
+                    result = self.run_suite(suite, output=sys_stdout)
+                finally:
+                    self.teardown_databases(old_config)
 
             self.teardown_test_environment()
             
             if self.worker:
                 sys.stderr, sys.stdout = sys_stderr, sys_stdout
-                
+            
             return self.suite_result(suite, result)
 
         def suite_result(self, suite, result, **kwargs):
