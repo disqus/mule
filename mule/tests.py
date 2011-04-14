@@ -12,11 +12,11 @@ class TestRunnerTestCase(unittest.TestCase):
 
     def test_process(self):
         mule = Mule()
-        result = mule.process([self.__class__], 'echo #TEST#')
+        result = mule.process([self.__class__], 'echo $TEST')
         self.assertEquals(len(result), 1)
         self.assertTrue('tests.TestRunnerTestCase' in result)
 
 class RunTestTestCase(unittest.TestCase):
     def test_subprocess(self):
-        result = run_test('build_id', 'echo #TEST#', 'job')
+        result = run_test('build_id', 'echo $TEST', 'job')
         self.assertEquals(result, 'job')

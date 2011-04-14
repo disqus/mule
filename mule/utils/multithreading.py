@@ -1,7 +1,6 @@
 from collections import defaultdict
 from Queue import Queue
 from threading import Thread
-import thread
 
 _results = defaultdict(list)
 
@@ -23,21 +22,31 @@ class Worker(Thread):
                     'kwargs': kwargs,
                     'result': func(*args, **kwargs),
                 })
+            except Exception, e:
+                _results[ident].append({
+                    'func': func,
+                    'args': args,
+                    'kwargs': kwargs,
+                    'result': e,
+                })
             finally:
                 self.tasks.task_done()
 
 class ThreadPool:
     """Pool of threads consuming tasks from a queue"""
     def __init__(self, num_threads):
-        self.tasks = Queue(num_threads)
+        self.tasks = Queue()
         for _ in xrange(num_threads):
             Worker(self.tasks)
     
     def add(self, func, *args, **kwargs):
         """Add a task to the queue"""
-        self.tasks.put((func, args, kwargs, id(self)))
+        self.tasks.put((func, args, kwargs, id(self)), False)
 
     def join(self):
         """Wait for completion of all the tasks in the queue"""
-        self.tasks.join()
-        return _results[id(self)]
+        try:
+            self.tasks.join()
+            return _results[id(self)]
+        finally:
+            del _results[id(self)]

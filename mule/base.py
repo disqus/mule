@@ -23,7 +23,7 @@ class Mule(object):
         self.max_workers = max_workers
         self.logger = logging.getLogger('mule')
     
-    def process(self, jobs, runner='unit2 #TEST#'):
+    def process(self, jobs, runner='unit2 $TEST'):
         self.logger.info("Processing build %s", self.build_id)
 
         self.logger.info("Provisioning %d worker(s)", self.max_workers)
@@ -189,7 +189,7 @@ class Mule(object):
                     yield test
 
 class MultiProcessMule(Mule):
-    def process(self, jobs, runner='unit2 #TEST#'):
+    def process(self, jobs, runner='unit2 $TEST'):
         self.logger.info("Processing build %s", self.build_id)
 
         self.logger.info("Provisioning %d worker(s)", self.max_workers)
@@ -200,8 +200,6 @@ class MultiProcessMule(Mule):
 
         for job in jobs:
             pool.add(run_test, self.build_id, runner, '%s.%s' % (job.__module__, job.__name__))
-
-        self.logger.info('%d worker(s) provisioned', self.max_workers)
 
         self.logger.info("Waiting for response...")
 

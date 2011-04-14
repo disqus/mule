@@ -136,7 +136,7 @@ def make_suite_runner(parent):
                         help='Identifies this runner as a worker of a distributed test runner.'),
         ) + getattr(parent, 'options', ())
 
-        def __init__(self, auto_bootstrap=False, build_id='default', db_prefix='test', distributed=False, worker=False,
+        def __init__(self, auto_bootstrap=False, build_id='default', distributed=False, worker=False,
                      multiprocess=False, *args, **kwargs):
             super(new, self).__init__(
                 verbosity=int(kwargs['verbosity']),
@@ -149,7 +149,7 @@ def make_suite_runner(parent):
             if self.auto_bootstrap:
                 self.interactive = False
 
-            self.db_prefix = db_prefix
+            self.db_prefix = kwargs.pop('db_prefix', 'test')
             
             assert not (distributed and worker and multiprocess), "You cannot combine --distributed, --worker, and --multiprocess"
             
@@ -199,9 +199,6 @@ def make_suite_runner(parent):
             if self.auto_bootstrap:
                 bootstrap = False
                 for alias in connections:
-                    if bootstrap:
-                        continue
-                
                     connection = connections[alias]
 
                     if connection.settings_dict['TEST_MIRROR']:
@@ -221,6 +218,7 @@ def make_suite_runner(parent):
                     else:
                         cursor.execute("DROP DATABASE %s" % (qn(test_database_name),))
                         bootstrap = True
+                        break
                     finally:
                         cursor.close()
                     
@@ -228,7 +226,28 @@ def make_suite_runner(parent):
             else:
                 bootstrap = True
             
+            # HACK: We need to kill post_syncdb receivers to stop them from sending when the databases
+            #       arent fully ready.
+            post_syncdb_receivers = signals.post_syncdb.receivers
+            signals.post_syncdb.receivers = []
+
             if not bootstrap:
+                # Ensure we setup ``SUPPORTS_TRANSACTIONS``
+                for alias in connections:
+                    connection = connections[alias]
+
+                    # Ensure NAME is now set to TEST_NAME
+                    connection.settings_dict['NAME'] = connection.settings_dict['TEST_NAME']
+                    settings.DATABASES[alias]['NAME'] = settings.DATABASES[alias]['TEST_NAME']
+
+                    if not connection.settings_dict['TEST_MIRROR']:
+                        # Clear out the existing data
+                        # XXX: we can probably isolate this based on TestCase.multi_db
+                        call_command('flush', verbosity=self.verbosity, interactive=self.interactive, database=alias)
+
+            if not bootstrap:
+                result = super(new, self).setup_databases(*args, **kwargs)
+            else:
                 # Ensure we setup ``SUPPORTS_TRANSACTIONS``
                 for alias in connections:
                     connection = connections[alias]
@@ -237,16 +256,10 @@ def make_suite_runner(parent):
                         connections._connections[alias] = DatabaseProxy(connections[mirror_alias], alias)
                     else:
                         can_rollback = connection.creation._rollback_works()
-                        connection.settings_dict["SUPPORTS_TRANSACTIONS"] = can_rollback
+                        connection.settings_dict['SUPPORTS_TRANSACTIONS'] = can_rollback
                 result = None
-                call_command('flush')
-            else:
-                # HACK: We need to kill post_syncdb receivers to stop them from sending when the databases
-                #       arent fully ready.
-                post_syncdb_receivers = signals.post_syncdb.receivers
-                signals.post_syncdb.receivers = []
-                result = super(new, self).setup_databases(*args, **kwargs)
-                signals.post_syncdb.receivers = post_syncdb_receivers
+            
+            signals.post_syncdb.receivers = post_syncdb_receivers
 
 
             # XXX: we could truncate all tables in the teardown phase and
@@ -276,7 +289,7 @@ def make_suite_runner(parent):
                 cls = Mule
             build_id = uuid.uuid4().hex
             mule = cls(build_id=build_id)
-            result = mule.process(test_labels, runner='python manage.py mule --auto-bootstrap --worker --id=%s #TEST#' % build_id)
+            result = mule.process(test_labels, runner='python manage.py mule --auto-bootstrap --worker --id=%s $TEST' % build_id)
             # result should now be some parseable text
             return result
         
@@ -303,11 +316,9 @@ def make_suite_runner(parent):
             # We need to swap stdout/stderr so that the task only captures what is needed,
             # and everything else goes to our logs
             if self.worker:
-                stderr, stdout = StringIO(), StringIO()
+                #stderr, stdout = StringIO(), StringIO()
                 sys_stderr, sys_stdout = sys.stderr, sys.stdout
-                sys.stderr, sys.stdout = stderr, stdout
-            else:
-                sys_stderr, sys_stdout = sys.stderr, sys.stdout
+                #sys.stderr, sys.stdout = stderr, stdout
             
             self.setup_test_environment()
             suite = self.build_suite(test_labels, extra_tests)
@@ -325,7 +336,7 @@ def make_suite_runner(parent):
             
             if self.worker:
                 sys.stderr, sys.stdout = sys_stderr, sys_stdout
-
+                
             return self.suite_result(suite, result)
 
         def suite_result(self, suite, result, **kwargs):

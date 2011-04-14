@@ -4,15 +4,6 @@ from celery.worker.control import Panel
 import subprocess
 import shlex
 
-class TestRunnerException(Exception):
-    def __init__(self, retcode, stdout, stderr):
-        self.retcode = retcode
-        self.stdout = stdout
-        self.stderr = stderr
-    
-    def __str__(self):
-        return '<%s: retcode=%s, stdout=%s, stderr=%s>' % (self.__class__.__name__, self.retcode, self.stdout, self.stderr)
-
 @Panel.register
 def mule_provision(panel, build_id):
     """
@@ -39,7 +30,7 @@ def mule_provision(panel, build_id):
     declaration = dict(queue=queue_name, exchange_type='direct')
     queue = cset.add_consumer_from_dict(**declaration)
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    queue(channel).declare()
+    queue(cset.channel).declare()
     cset.consume()
     panel.logger.info("Started consuming from %r" % (declaration, ))
 
@@ -84,31 +75,22 @@ def run_test(build_id, runner, job):
     Spawns a test runner and reports the result.
     """
     logger = run_test.get_logger()
-    cmd = runner.replace('#TEST#', job).encode('utf-8')
+    cmd = 'TEST=%(job)s %(runner)s' % dict(
+        job=job.encode('utf-8'),
+        runner=runner.encode('utf-8'),
+    )
     logger.info('Job received: %s', cmd)
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = proc.communicate()
     proc.wait()
     retcode = proc.returncode
-    if retcode != 0:
-        # XXX: If we hit a hard exception we return special information
-        exc = TestRunnerException(retcode=str(retcode), stdout=str(stdout or ''), stderr=str(stderr or ''))
-        logger.info(stdout)
-        logger.info(stderr)
-        return {
-            "status": "fail",
-            "reason": "Bad return code: %s" % retcode,
-            "stdout": stdout,
-            "stderr": stderr,
-            "build_id": build_id,
-            "job": job,
-        }
 
-    logger.info('Finished!')
     return {
-        "status": "ok",
         "stdout": stdout,
         "stderr": stderr,
+        "retcode": retcode,
         "build_id": build_id,
         "job": job,
     }
+
+    logger.info('Finished!')

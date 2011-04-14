@@ -17,8 +17,8 @@ def main():
     if args[1] == 'test':
         parser.add_option("-b", "--basedir", default=".",
                           help="Specify the directory to discover tests from.")
-        parser.add_option("-r", "--runner", default="unit2 #TEST#",
-                          help="Specify the test suite runner (use #TEST# for path.to.TestCase substitution).")
+        parser.add_option("-r", "--runner", default="unit2 $TEST",
+                          help="Specify the test suite runner (use $TEST for path.to.TestCase substitution).")
 
     (options, args) = parser.parse_args()
     if args[0] == "test":
