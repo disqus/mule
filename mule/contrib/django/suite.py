@@ -402,24 +402,28 @@ def make_suite_runner(parent):
                             fp.write(r['stdout'])
                         finally:
                             fp.close()
-                    else:
+                    elif r['stdout']:
                         # HACK: Ideally we would let our default text runner represent us here, but that'd require
                         #       reconstructing the original objects which is even more of a hack
                         xml = parseString(r['stdout'])
+                        had_res = True
                         for xml_test in xml.getElementsByTagName('testcase'):
                             for xml_test_res in xml_test.childNodes:
+                                had_res = False
                                 if xml_test_res.nodeName not in ('failure', 'skip', 'error'):
                                     continue
                                 desc = xml_test_res.getAttribute('message') or '%s (%s)' % (xml_test.getAttribute('name'), xml_test.getAttribute('classname'))
                                 sys.stdout.write(_TextTestResult.separator1 + '\n')
                                 sys.stdout.write('%s [%.3fs]: %s\n' % \
                                     (xml_test_res.nodeName.upper(), float(xml_test.getAttribute('time') or '0.0'), desc))
-                                error_msg = ''.join(c.wholeText for c in xml_test_res.childNodes if c.nodeType == c.CDATA_SECTION_NODE)
+                                error_msg = (''.join(c.wholeText for c in xml_test_res.childNodes if c.nodeType == c.CDATA_SECTION_NODE)).strip()
                                 if error_msg:
                                     sys.stdout.write(_TextTestResult.separator2 + '\n')
                                     sys.stdout.write('%s\n' % error_msg)
-                        sys.stdout.write(_TextTestResult.separator2 + '\n')
-
+                        if had_res:
+                            sys.stdout.write(_TextTestResult.separator2 + '\n')
+                    else:
+                        sys.stdout.write(r['stderr'])
                 run = tests - skips
                 sys.stdout.write("Ran %d test%s in %.3fs\n" % (run, run != 1 and "s" or "", total_time))
             
