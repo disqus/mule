@@ -1,5 +1,6 @@
 import os, os.path
 import logging
+import multiprocessing
 import re
 import sys
 import time
@@ -16,12 +17,12 @@ from mule.utils.multithreading import ThreadPool
 class Mule(object):
     loglevel = logging.INFO
     
-    def __init__(self, build_id=None, max_workers=4):
+    def __init__(self, build_id=None, max_workers=None):
         if not build_id:
             build_id = uuid.uuid4().hex
         
         self.build_id = build_id
-        self.max_workers = max_workers
+        self.max_workers = max_workers or multiprocessing.cpu_count()
         self.logger = logging.getLogger('mule')
     
     def process(self, jobs, runner='unit2 $TEST'):
