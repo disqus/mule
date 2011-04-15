@@ -179,6 +179,6 @@ class XMLTestRunner(TextTestRunner):
         "Run the given test case or test suite."
         result = super(XMLTestRunner, self).run(test)
 
-        self.stream.writeln('Generating XML reports...')
+        # self.stream.writeln('Generating XML reports...')
         result.generate_reports(self)
         return result

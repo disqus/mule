@@ -386,6 +386,8 @@ def make_suite_runner(parent):
                 failures, errors = 0, 0
                 skips, tests = 0, 0
 
+                had_res = False
+
                 for r in result:
                     # XXX: stdout (which is our result) is in XML, which sucks life is easier with regexp
                     match = re.search(r'errors="(\d+)".*failures="(\d+)".*skips="(\d+)".*tests="(\d+)"', r['stdout'])
@@ -406,12 +408,11 @@ def make_suite_runner(parent):
                         # HACK: Ideally we would let our default text runner represent us here, but that'd require
                         #       reconstructing the original objects which is even more of a hack
                         xml = parseString(r['stdout'])
-                        had_res = True
                         for xml_test in xml.getElementsByTagName('testcase'):
                             for xml_test_res in xml_test.childNodes:
-                                had_res = False
                                 if xml_test_res.nodeName not in ('failure', 'skip', 'error'):
                                     continue
+                                had_res = True
                                 desc = xml_test_res.getAttribute('message') or '%s (%s)' % (xml_test.getAttribute('name'), xml_test.getAttribute('classname'))
                                 sys.stdout.write(_TextTestResult.separator1 + '\n')
                                 sys.stdout.write('%s [%.3fs]: %s\n' % \
@@ -420,13 +421,17 @@ def make_suite_runner(parent):
                                 if error_msg:
                                     sys.stdout.write(_TextTestResult.separator2 + '\n')
                                     sys.stdout.write('%s\n' % error_msg)
-                        if had_res:
-                            sys.stdout.write(_TextTestResult.separator2 + '\n')
-                    else:
+                    elif r['stderr']:
                         sys.stdout.write(r['stderr'])
+                        sys.stdout.write(_TextTestResult.separator2 + '\n')
+
+                if had_res:
+                    sys.stdout.write(_TextTestResult.separator2 + '\n')
+
                 run = tests - skips
                 sys.stdout.write("Ran %d test%s in %.3fs\n" % (run, run != 1 and "s" or "", total_time))
-            
+                sys.stdout.write("\n")
+                
                 if errors or failures or skips:
                     sys.stdout.write("FAILED (")
                     if failures:
@@ -442,6 +447,8 @@ def make_suite_runner(parent):
                     sys.stdout.write(")\n")
                 else:
                     sys.stdout.write("OK\n")
+                
+                sys.stdout.write("\n")
                 
                 return failures + errors
             return super(new, self).suite_result(suite, result, **kwargs)
