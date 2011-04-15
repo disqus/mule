@@ -60,18 +60,17 @@ def mule_teardown(panel, build_id):
     queue_name = '%s-%s' % (conf.BUILD_QUEUE_PREFIX, build_id)
 
     cset = panel.consumer.task_consumer
-
+    channel = cset.channel
+    # kill all jobs in queue
+    channel.queue_purge(queue=queue_name)
+    # stop consuming from queue
     cset.cancel_by_queue(queue_name)
     
     queue = cset.add_consumer_from_dict(queue=conf.DEFAULT_QUEUE)
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    channel = cset.channel
     queue(channel).declare()
-    # channel = cset.connection.channel()
-    # try:
-    #     queue(channel).declare()
-    # finally:
-    #     channel.close()
+
+    # start consuming from default
     cset.consume()
 
     panel.logger.info("Rejoined default queue")

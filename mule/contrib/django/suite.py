@@ -422,6 +422,8 @@ def make_suite_runner(parent):
                                     sys.stdout.write(_TextTestResult.separator2 + '\n')
                                     sys.stdout.write('%s\n' % error_msg)
                     elif r['stderr']:
+                        # TODO: Need to handle xunit here.. somehow
+                        # TODO: need to handle when stderr isnt even present
                         sys.stdout.write(r['stderr'])
                         sys.stdout.write(_TextTestResult.separator2 + '\n')
 
