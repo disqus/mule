@@ -10,7 +10,7 @@ from django.core.management import call_command
 from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
-from django.test.simple import DjangoTestSuiteRunner, TestCase, build_suite, reorder_suite
+from django.test.simple import DjangoTestSuiteRunner, build_suite, reorder_suite
 from mule.base import Mule, MultiProcessMule
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner, _TextTestResult
@@ -141,6 +141,10 @@ def make_suite_runner(parent):
                         help='Outputs results in XUnit format.'),
             make_option('--xunit-output', dest='xunit_output', default="./xunit/",
                         help='Specifies the output directory for XUnit results.'),
+            make_option('--include', dest='include',
+                        help='Specifies inclusion cases (TestCaseClassName) for the job detection.'),
+            make_option('--exclude', dest='exclude',
+                        help='Specifies exclusion cases (TestCaseClassName) for the job detection.'),
         ) + getattr(parent, 'options', ())
 
         def __init__(self, auto_bootstrap=False, build_id='default', distributed=False, worker=False,
@@ -165,6 +169,14 @@ def make_suite_runner(parent):
             self.multiprocess = multiprocess
             self.xunit = kwargs.pop('xunit', False)
             self.xunit_output = os.path.realpath(kwargs.pop('xunit_output', './xunit/'))
+            if kwargs.get('include'):
+                self.include_testcases = [import_string(i) for i in kwargs.pop('include').split(',')]
+            else:
+                self.include_testcases = None
+            if kwargs.get('exclude'):
+                self.exclude_testcases = [import_string(i) for i in kwargs.pop('exclude').split(',')]
+            else:
+                self.exclude_testcases = None
     
         def run_suite(self, suite, output=None):
             # XXX: output is only used by XML runner, pretty ugly
@@ -200,8 +212,17 @@ def make_suite_runner(parent):
             if extra_tests:
                 for test in extra_tests:
                     suite.addTest(test)
+            
+            new_suite = unittest.TestSuite()
+            
+            for test in reorder_suite(suite, (unittest.TestCase,)):
+                if self.include_testcases and not any(isinstance(test, c) for c in self.include_testcases):
+                    continue
+                if self.exclude_testcases and any(isinstance(test, c) for c in self.exclude_testcases):
+                    continue
+                new_suite.addTest(test)
 
-            return reorder_suite(suite, (TestCase,))
+            return reorder_suite(new_suite, (unittest.TestCase,))
 
         def setup_databases(self, *args, **kwargs):
             # We only need to setup databases if we need to bootstrap
