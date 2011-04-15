@@ -399,11 +399,17 @@ def make_suite_runner(parent):
 
                     if self.xunit:
                         # Since we already get xunit results back, let's just write them to disk
-                        fp = open(os.path.join(self.xunit_output, r['job'] + '.xml'), 'w')
-                        try:
-                            fp.write(r['stdout'])
-                        finally:
-                            fp.close()
+                        if r['stdout']:
+                            fp = open(os.path.join(self.xunit_output, r['job'] + '.xml'), 'w')
+                            try:
+                                fp.write(r['stdout'])
+                            finally:
+                                fp.close()
+                        elif r['stderr']:
+                            sys.stderr.write(r['stderr'])
+                            # Need to track this for the builds
+                            errors += 1
+                            tests += 1
                     elif r['stdout']:
                         # HACK: Ideally we would let our default text runner represent us here, but that'd require
                         #       reconstructing the original objects which is even more of a hack
@@ -426,13 +432,15 @@ def make_suite_runner(parent):
                         # TODO: need to handle when stderr isnt even present
                         sys.stdout.write(r['stderr'])
                         sys.stdout.write(_TextTestResult.separator2 + '\n')
+                        # Need to track this for the builds
+                        errors += 1
+                        tests += 1
 
                 if had_res:
                     sys.stdout.write(_TextTestResult.separator2 + '\n')
 
                 run = tests - skips
-                sys.stdout.write("Ran %d test%s in %.3fs\n" % (run, run != 1 and "s" or "", total_time))
-                sys.stdout.write("\n")
+                sys.stdout.write("\nRan %d test%s in %.3fs\n\n" % (run, run != 1 and "s" or "", total_time))
                 
                 if errors or failures or skips:
                     sys.stdout.write("FAILED (")
@@ -446,11 +454,9 @@ def make_suite_runner(parent):
                         if failures or errors:
                             sys.stdout.write(", ")
                         sys.stdout.write("skipped=%d" % skips)
-                    sys.stdout.write(")\n")
+                    sys.stdout.write(")\n\n")
                 else:
-                    sys.stdout.write("OK\n")
-                
-                sys.stdout.write("\n")
+                    sys.stdout.write("OK\n\n")
                 
                 return failures + errors
             return super(new, self).suite_result(suite, result, **kwargs)
