@@ -18,6 +18,7 @@ from mule.utils import import_string, acquire_lock, release_lock
 from optparse import make_option
 
 import os, os.path
+import re
 import signal
 import sys
 import types
@@ -134,6 +135,10 @@ def make_suite_runner(parent):
                         help='Spawns multiple processes (controlled within threads) to test concurrently.'),
             make_option('--worker', dest='worker', action='store_true',
                         help='Identifies this runner as a worker of a distributed test runner.'),
+            make_option('--xunit', dest='xunit', action='store_true',
+                        help='Outputs results in XUnit format.'),
+            make_option('--xunit-output', dest='xunit_output', default="./xunit/",
+                        help='Specifies the output directory for XUnit results.'),
         ) + getattr(parent, 'options', ())
 
         def __init__(self, auto_bootstrap=False, build_id='default', distributed=False, worker=False,
@@ -156,10 +161,12 @@ def make_suite_runner(parent):
             self.distributed = distributed
             self.worker = worker
             self.multiprocess = multiprocess
+            self.xunit = kwargs.pop('xunit', False)
+            self.xunit_output = os.path.realpath(kwargs.pop('xunit_output', './xunit/'))
     
         def run_suite(self, suite, output=None):
             # XXX: output is only used by XML runner, pretty ugly
-            if self.worker:
+            if self.worker or self.xunit:
                 cls = XMLTestRunner
                 kwargs = {
                     'output': output,
@@ -318,8 +325,12 @@ def make_suite_runner(parent):
                 stderr, stdout = StringIO(), StringIO()
                 sys_stderr, sys_stdout = sys.stderr, sys.stdout
                 sys.stderr, sys.stdout = stderr, stdout
+                output = sys_stdout
             else:
-                sys_stdout = sys.stdout
+                if self.xunit:
+                    output = self.xunit_output
+                else:
+                    output = sys.stdout
             
             self.setup_test_environment()
             suite = self.build_suite(test_labels, extra_tests)
@@ -331,7 +342,7 @@ def make_suite_runner(parent):
             else:
                 old_config = self.setup_databases()
                 try:
-                    result = self.run_suite(suite, output=sys_stdout)
+                    result = self.run_suite(suite, output=output)
                 finally:
                     self.teardown_databases(old_config)
 
@@ -344,16 +355,41 @@ def make_suite_runner(parent):
 
         def suite_result(self, suite, result, **kwargs):
             if self.distributed or self.multiprocess:
+                # Bootstrap our xunit output path
+                if self.xunit and not os.path.exists(self.xunit_output):
+                    os.makedirs(self.xunit_output)
+
                 # We have JSON results to deal with
                 failures, errors = 0, 0
+                skips, tests = 0, 0
+                total_time = 0.0
                 for r in result:
-                    print repr(r)
-                    if r['retcode'] == 0:
-                        continue
+                    # TODO: we need to take the XML result and write it to disk
+                    # TODO: we should be outputting to stdout depending on the desired format
+                    #       (default should be text, not xml)
+                    # sys.stdout.write(r['stdout'])
+                    # sys.stderr.write(r['stderr'])
                     # XXX: stdout (which is our result) is in XML, which sucks
-                    match = re.find(r['stdout'], r'errors="(\d+)" failures="(\d+)"')
-                    errors += int(match.get(1))
-                    failures += int(match.get(2))
+                    match = re.search(r'errors="(\d+)".*failures="(\d+)".*skips="(\d+)".*tests="(\d+)"', r['stdout'])
+                    if match:
+                        errors += int(match.group(1))
+                        failures += int(match.group(2))
+                        skips += int(match.group(3))
+                        tests += int(match.group(4))
+
+                    total_time += (r['timeFinished'] - r['timeStarted'])
+
+                    if self.xunit:
+                        fp = open(os.path.join(self.xunit_output, r['job'] + '.xml'), 'w')
+                        try:
+                            fp.write(r['stdout'])
+                        finally:
+                            fp.close()
+
+                if self.verbosity > 0:
+                    run = tests - skips
+                    print "Ran %d test%s in %.3fs" % (run, run != 1 and "s" or "", total_time)
+                    
                 return failures + errors
             return super(new, self).suite_result(suite, result, **kwargs)
 

@@ -204,7 +204,7 @@ class MultiProcessMule(Mule):
 
         self.logger.info("Waiting for response...")
 
-        response = pool.join()
+        response = [r['result'] for r in pool.join()]
 
         self.logger.info("Tearing down %d worker(s)", self.max_workers)
 

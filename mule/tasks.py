@@ -5,6 +5,7 @@ from mule import conf
 import os
 import subprocess
 import shlex
+import time
 
 @Panel.register
 def mule_provision(panel, build_id):
@@ -97,15 +98,21 @@ def run_test(build_id, runner, job):
     env = os.environ.copy()
     env['TEST'] = job.encode('utf-8')
     
+    start = time.time()
+    
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             env=env)
 
     (stdout, stderr) = proc.communicate()
+
     proc.wait()
-    retcode = proc.returncode
+
+    stop = time.time()
 
     return {
-        "retcode": retcode,
+        "timeStarted": start,
+        "timeFinished": stop,
+        "retcode": proc.returncode,
         "build_id": build_id,
         "job": job,
         "stdout": stdout,
