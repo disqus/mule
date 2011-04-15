@@ -13,14 +13,16 @@ from django.db.models import get_app, get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner, TestCase, build_suite, reorder_suite
 from mule.base import Mule, MultiProcessMule
 from mule.runners.xml import XMLTestRunner
-from mule.runners.text import TextTestRunner
+from mule.runners.text import TextTestRunner, _TextTestResult
 from mule.utils import import_string, acquire_lock, release_lock
 from optparse import make_option
+from xml.dom.minidom import parseString
 
 import os, os.path
 import re
 import signal
 import sys
+import time
 import types
 import uuid
 import unittest
@@ -321,6 +323,7 @@ def make_suite_runner(parent):
         def _run_tests(self, test_labels, extra_tests=None, **kwargs):
             # We need to swap stdout/stderr so that the task only captures what is needed,
             # and everything else goes to our logs
+            start = time.time()
             if self.worker:
                 stderr, stdout = StringIO(), StringIO()
                 sys_stderr, sys_stdout = sys.stderr, sys.stdout
@@ -351,25 +354,20 @@ def make_suite_runner(parent):
             if self.worker:
                 sys.stderr, sys.stdout = sys_stderr, sys_stdout
             
-            return self.suite_result(suite, result)
+            stop = time.time()
+            return self.suite_result(suite, result, stop-start)
 
-        def suite_result(self, suite, result, **kwargs):
+        def suite_result(self, suite, result, total_time, **kwargs):
             if self.distributed or self.multiprocess:
                 # Bootstrap our xunit output path
                 if self.xunit and not os.path.exists(self.xunit_output):
                     os.makedirs(self.xunit_output)
-
-                # We have JSON results to deal with
+                
                 failures, errors = 0, 0
                 skips, tests = 0, 0
-                total_time = 0.0
+
                 for r in result:
-                    # TODO: we need to take the XML result and write it to disk
-                    # TODO: we should be outputting to stdout depending on the desired format
-                    #       (default should be text, not xml)
-                    # sys.stdout.write(r['stdout'])
-                    # sys.stderr.write(r['stderr'])
-                    # XXX: stdout (which is our result) is in XML, which sucks
+                    # XXX: stdout (which is our result) is in XML, which sucks life is easier with regexp
                     match = re.search(r'errors="(\d+)".*failures="(\d+)".*skips="(\d+)".*tests="(\d+)"', r['stdout'])
                     if match:
                         errors += int(match.group(1))
@@ -377,19 +375,48 @@ def make_suite_runner(parent):
                         skips += int(match.group(3))
                         tests += int(match.group(4))
 
-                    total_time += (r['timeFinished'] - r['timeStarted'])
-
                     if self.xunit:
+                        # Since we already get xunit results back, let's just write them to disk
                         fp = open(os.path.join(self.xunit_output, r['job'] + '.xml'), 'w')
                         try:
                             fp.write(r['stdout'])
                         finally:
                             fp.close()
+                    else:
+                        # HACK: Ideally we would let our default text runner represent us here, but that'd require
+                        #       reconstructing the original objects which is even more of a hack
+                        xml = parseString(r['stdout'])
+                        for xml_test in xml.getElementsByTagName('testcase'):
+                            for xml_test_res in xml_test.childNodes:
+                                if xml_test_res.nodeType == xml_test_res.TEXT_NODE:
+                                    continue
+                                desc = xml_test_res.getAttribute('message') or '%s (%s)' % (xml_test.getAttribute('name'), xml_test.getAttribute('classname'))
+                                sys.stdout.write(_TextTestResult.separator1 + '\n')
+                                sys.stdout.write('%s [%.3fs]: %s\n' % \
+                                    (xml_test_res.nodeName.upper(), float(xml_test.getAttribute('time') or '0.0'), desc))
+                                sys.stdout.write(_TextTestResult.separator2 + '\n')
+                                sys.stdout.write('%s\n' % (''.join(c.wholeText for c in xml_test_res.childNodes if c.nodeType == c.CDATA_SECTION_NODE),))
+                        sys.stdout.write(_TextTestResult.separator2 + '\n')
 
-                if self.verbosity > 0:
-                    run = tests - skips
-                    print "Ran %d test%s in %.3fs" % (run, run != 1 and "s" or "", total_time)
-                    
+                run = tests - skips
+                sys.stdout.write("Ran %d test%s in %.3fs\n" % (run, run != 1 and "s" or "", total_time))
+            
+                if errors or failures or skips:
+                    sys.stdout.write("FAILED (")
+                    if failures:
+                        sys.stdout.write("failures=%d" % failures)
+                    if errors:
+                        if failures:
+                            sys.stdout.write(", ")
+                        sys.stdout.write("errors=%d" % errors)
+                    if skips:
+                        if failures or errors:
+                            sys.stdout.write(", ")
+                        sys.stdout.write("skipped=%d" % skips)
+                    sys.stdout.write(")\n")
+                else:
+                    sys.stdout.write("OK\n")
+                
                 return failures + errors
             return super(new, self).suite_result(suite, result, **kwargs)
 
