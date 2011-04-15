@@ -15,6 +15,8 @@ General:
   
 - mule_teardown needs to ensure it wipes ALL jobs in the current queue
 
+- Need the ability to specify --include and --exclude for specifying TestCaseClassName's to adjust the suite grep
+
 Django Integration:
 
 - The short version of app names doesnt work currently. e.g. forums.TestCase
@@ -28,3 +30,6 @@ Django Integration:
   if self.showAll:
       self.stream.writeln('%s (%.3fs)' % \
           (verbose_str, test_info.get_elapsed_time()))
+
+- The Disqus selenium test should have been reported as skipped, but wasn't. It caused metric tons of timeouts and consumed way too
+  much cpu time.
