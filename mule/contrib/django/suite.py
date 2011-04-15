@@ -261,7 +261,6 @@ def make_suite_runner(parent):
             signals.post_syncdb.receivers = []
 
             if not bootstrap:
-                # Ensure we setup ``SUPPORTS_TRANSACTIONS``
                 old_names = []
                 mirrors = []
                 for alias in connections:
@@ -281,6 +280,7 @@ def make_suite_runner(parent):
                     else:
                         old_names.append((connection, connection.settings_dict['NAME']))
                         can_rollback = connection.creation._rollback_works()
+                        # Ensure we setup ``SUPPORTS_TRANSACTIONS``
                         connection.settings_dict['SUPPORTS_TRANSACTIONS'] = can_rollback
                         # Clear out the existing data
                         # XXX: we can probably isolate this based on TestCase.multi_db
@@ -413,7 +413,7 @@ def make_suite_runner(parent):
                                 if xml_test_res.nodeName not in ('failure', 'skip', 'error'):
                                     continue
                                 had_res = True
-                                desc = xml_test_res.getAttribute('message') or '%s (%s)' % (xml_test.getAttribute('name'), xml_test.getAttribute('classname'))
+                                desc = '%s (%s)' % (xml_test.getAttribute('name'), xml_test.getAttribute('classname'))
                                 sys.stdout.write(_TextTestResult.separator1 + '\n')
                                 sys.stdout.write('%s [%.3fs]: %s\n' % \
                                     (xml_test_res.nodeName.upper(), float(xml_test.getAttribute('time') or '0.0'), desc))
