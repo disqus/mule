@@ -14,6 +14,9 @@ from mule import conf
 from mule.tasks import run_test
 from mule.utils.multithreading import ThreadPool
 
+class FailFastInterrupt(KeyboardInterrupt):
+    pass
+
 class Mule(object):
     loglevel = logging.INFO
     
@@ -25,7 +28,16 @@ class Mule(object):
         self.max_workers = max_workers or multiprocessing.cpu_count()
         self.logger = logging.getLogger('mule')
     
-    def process(self, jobs, runner='unit2 $TEST'):
+    def process(self, jobs, runner='unit2 $TEST', callback=None):
+        """
+        ``jobs`` is a list of path.to.TestCase strings to process.
+        
+        ``runner`` should be defined as command exectuable in bash, where $TEST is
+        the current job.
+        
+        ``callback`` will execute a callback after each result is returned, in
+        addition to return the aggregate of all results after completion.
+        """
         self.logger.info("Processing build %s", self.build_id)
 
         self.logger.info("Provisioning %d worker(s)", self.max_workers)
@@ -81,12 +93,20 @@ class Mule(object):
                     'queue': 'mule-%s' % self.build_id,
                     # 'exchange': 'mule-%s' % self.build_id,
                 }) for job in jobs)
+            
             result = taskset.apply_async()
 
             self.logger.info("Waiting for response...")
             # response = result.join()
             # propagate=False ensures we get *all* responses        
-            response = result.join(propagate=False)
+            response = []
+            try:
+                for task_response in result.iterate():
+                    response.append(task_response)
+                    if callback:
+                        callback(task_response)
+            except KeyboardInterrupt, e:
+                self.logger.exception(e)
         
         finally:
             self.logger.info("Tearing down %d worker(s)", len(actual))
@@ -191,7 +211,7 @@ class Mule(object):
                     yield test
 
 class MultiProcessMule(Mule):
-    def process(self, jobs, runner='unit2 $TEST'):
+    def process(self, jobs, runner='unit2 $TEST', callback=None):
         self.logger.info("Processing build %s", self.build_id)
 
         self.logger.info("Provisioning %d worker(s)", self.max_workers)
@@ -201,7 +221,7 @@ class MultiProcessMule(Mule):
         self.logger.info("Building queue of %d test job(s)", len(jobs))
 
         for job in jobs:
-            pool.add(run_test, self.build_id, runner, '%s.%s' % (job.__module__, job.__name__))
+            pool.add(run_test, self.build_id, runner, '%s.%s' % (job.__module__, job.__name__), callback)
 
         self.logger.info("Waiting for response...")
 

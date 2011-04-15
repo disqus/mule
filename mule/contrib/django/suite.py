@@ -11,7 +11,7 @@ from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner, build_suite, reorder_suite
-from mule.base import Mule, MultiProcessMule
+from mule.base import Mule, MultiProcessMule, FailFastInterrupt
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner, _TextTestResult
 from mule.utils import import_string, acquire_lock, release_lock
@@ -316,8 +316,12 @@ def make_suite_runner(parent):
             else:
                 cls = Mule
             build_id = uuid.uuid4().hex
+            base_cmd = 'python manage.py mule --auto-bootstrap --worker --id=%s' % build_id
+            if self.failfast:
+                base_cmd += ' --failfast'
             mule = cls(build_id=build_id)
-            result = mule.process(test_labels, runner='python manage.py mule --auto-bootstrap --worker --id=%s $TEST' % build_id)
+            result = mule.process(test_labels, runner='%s $TEST' % (base_cmd,),
+                                  callback=self.report_result)
             # result should now be some parseable text
             return result
         
@@ -377,6 +381,23 @@ def make_suite_runner(parent):
             stop = time.time()
             return self.suite_result(suite, result, stop-start)
 
+        def report_result(self, result):
+            if result['stdout']:
+                match = re.search(r'errors="(\d+)".*failures="(\d+)".*skips="(\d+)".*tests="(\d+)"', result['stdout'])
+                if match:
+                    errors = int(match.group(1))
+                    failures = int(match.group(2))
+                    skips = int(match.group(3))
+                    tests = int(match.group(4))
+            else:
+                errors = 1
+                tests = 1
+                failures = 0
+                skips = 0
+            
+            if self.failfast and (errors or failures):
+                raise FailFastInterrupt()
+        
         def suite_result(self, suite, result, total_time, **kwargs):
             if self.distributed or self.multiprocess:
                 # Bootstrap our xunit output path

@@ -25,7 +25,6 @@ class Worker(Thread):
                     'result': func(*args, **kwargs),
                 })
             except (KeyboardInterrupt, SystemExit):
-                print '\n! Received keyboard interrupt, closing workers.\n'
                 return
             except Exception, e:
                 _results[ident].append({
@@ -59,7 +58,9 @@ class ThreadPool:
                         self.workers.pop(self.workers.index(worker))
                 
                 time.sleep(0.5)
-                    
-            return _results[id(self)]
+        except KeyboardInterrupt:
+            print '\n! Received keyboard interrupt, closing workers.\n'
         finally:
             del _results[id(self)]
+
+        return _results[id(self)]

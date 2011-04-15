@@ -82,16 +82,12 @@ def mule_teardown(panel, build_id):
 
 
 @task(ignore_result=False)
-def run_test(build_id, runner, job):
+def run_test(build_id, runner, job, callback=None):
     """
     Spawns a test runner and reports the result.
     """
-    logger = run_test.get_logger()
-    
     # TODO: we shouldnt need to do this, bash should do it
     cmd = runner.encode('utf-8').replace('$TEST', job.encode('utf-8'))
-
-    logger.info('Job received: %s', cmd)
 
     # Setup our environment variables
     env = os.environ.copy()
@@ -108,7 +104,7 @@ def run_test(build_id, runner, job):
 
     stop = time.time()
 
-    return {
+    result = {
         "timeStarted": start,
         "timeFinished": stop,
         "retcode": proc.returncode,
@@ -118,4 +114,6 @@ def run_test(build_id, runner, job):
         "stderr": stderr,
     }
 
-    logger.info('Finished!')
+    if callback:
+        callback(result)
+    return result
