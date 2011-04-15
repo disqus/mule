@@ -179,7 +179,6 @@ def make_suite_runner(parent):
                 self.exclude_testcases = None
     
         def run_suite(self, suite, output=None):
-            # XXX: output is only used by XML runner, pretty ugly
             if self.worker or self.xunit:
                 cls = XMLTestRunner
                 kwargs = {
@@ -409,14 +408,16 @@ def make_suite_runner(parent):
                         xml = parseString(r['stdout'])
                         for xml_test in xml.getElementsByTagName('testcase'):
                             for xml_test_res in xml_test.childNodes:
-                                if xml_test_res.nodeType == xml_test_res.TEXT_NODE:
+                                if xml_test_res.nodeName not in ('failure', 'skip', 'error'):
                                     continue
                                 desc = xml_test_res.getAttribute('message') or '%s (%s)' % (xml_test.getAttribute('name'), xml_test.getAttribute('classname'))
                                 sys.stdout.write(_TextTestResult.separator1 + '\n')
                                 sys.stdout.write('%s [%.3fs]: %s\n' % \
                                     (xml_test_res.nodeName.upper(), float(xml_test.getAttribute('time') or '0.0'), desc))
-                                sys.stdout.write(_TextTestResult.separator2 + '\n')
-                                sys.stdout.write('%s\n' % (''.join(c.wholeText for c in xml_test_res.childNodes if c.nodeType == c.CDATA_SECTION_NODE),))
+                                error_msg = ''.join(c.wholeText for c in xml_test_res.childNodes if c.nodeType == c.CDATA_SECTION_NODE)
+                                if error_msg:
+                                    sys.stdout.write(_TextTestResult.separator2 + '\n')
+                                    sys.stdout.write('%s\n' % error_msg)
                         sys.stdout.write(_TextTestResult.separator2 + '\n')
 
                 run = tests - skips

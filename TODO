@@ -15,8 +15,6 @@ General:
   
 - mule_teardown needs to ensure it wipes ALL jobs in the current queue
 
-- Need the ability to specify --include and --exclude for specifying TestCaseClassName's to adjust the suite grep
-
 Django Integration:
 
 - The short version of app names doesnt work currently. e.g. forums.TestCase
