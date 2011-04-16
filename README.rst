@@ -94,10 +94,11 @@ Django Integration
 - Text runner output doesnt support verbosity levels correctly (for non-errors/failures):
 
   (Should it?)
+  ::
 
-  if self.showAll:
-      self.stream.writeln('%s (%.3fs)' % \
-          (verbose_str, test_info.get_elapsed_time()))
+    if self.showAll:
+        self.stream.writeln('%s (%.3fs)' % \
+            (verbose_str, test_info.get_elapsed_time()))
 
 - The Disqus selenium test should have been reported as skipped, but wasn't. It caused metric tons of timeouts and consumed way too
   much cpu time.
