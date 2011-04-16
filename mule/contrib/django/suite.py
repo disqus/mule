@@ -284,7 +284,7 @@ def make_suite_runner(parent):
                         connection.settings_dict['SUPPORTS_TRANSACTIONS'] = can_rollback
                         # Clear out the existing data
                         # XXX: we can probably isolate this based on TestCase.multi_db
-                        call_command('flush', verbosity=self.verbosity, interactive=self.interactive, database=alias)
+                        # call_command('flush', verbosity=self.verbosity, interactive=self.interactive, database=alias)
             else:
                 old_names, mirrors = super(new, self).setup_databases(*args, **kwargs)
             
@@ -350,8 +350,8 @@ def make_suite_runner(parent):
             start = time.time()
             if self.worker:
                 stderr, stdout = StringIO(), StringIO()
-                sys_stderr, sys_stdout = sys.stderr, sys.stdout
-                sys.stderr, sys.stdout = stderr, stdout
+                sys_stdout = sys.stdout
+                sys.stdout = stdout
                 output = sys_stdout
             else:
                 if self.xunit:
@@ -376,7 +376,7 @@ def make_suite_runner(parent):
             self.teardown_test_environment()
             
             if self.worker:
-                sys.stderr, sys.stdout = sys_stderr, sys_stdout
+                sys.stdout = sys_stdout
             
             stop = time.time()
             return self.suite_result(suite, result, stop-start)
