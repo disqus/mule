@@ -26,7 +26,10 @@ def mule_provision(panel, build_id):
     cset = panel.consumer.task_consumer
     
     if conf.DEFAULT_QUEUE not in [q.name for q in cset.queues]:
-        return {"fail": "worker is already in use"}
+        return {
+            "status": "fail",
+            "reason": "worker is already in use"
+        }
     
     cset.cancel_by_queue(conf.DEFAULT_QUEUE)
     
@@ -110,8 +113,8 @@ def run_test(build_id, runner, job, callback=None):
         "retcode": proc.returncode,
         "build_id": build_id,
         "job": job,
-        "stdout": stdout,
-        "stderr": stderr,
+        "stdout": stdout.strip(),
+        "stderr": stderr.strip(),
     }
 
     if callback:
