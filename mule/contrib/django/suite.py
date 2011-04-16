@@ -6,11 +6,10 @@ from __future__ import absolute_import
 
 from cStringIO import StringIO
 from django.conf import settings
-from django.core.management import call_command
 from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
-from django.test.simple import DjangoTestSuiteRunner, build_suite, reorder_suite
+from django.test.simple import DjangoTestSuiteRunner, build_suite, reorder_suite, TEST_MODULE
 from mule.base import Mule, MultiProcessMule, FailFastInterrupt
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner, _TextTestResult
@@ -282,10 +281,13 @@ def make_suite_runner(parent):
                         can_rollback = connection.creation._rollback_works()
                         # Ensure we setup ``SUPPORTS_TRANSACTIONS``
                         connection.settings_dict['SUPPORTS_TRANSACTIONS'] = can_rollback
-                        # Clear out the existing data
-                        # XXX: we can probably isolate this based on TestCase.multi_db
-                        # call_command('flush', verbosity=self.verbosity, interactive=self.interactive, database=alias)
             else:
+                # Ensure we import all tests that could possibly be executed so that tables get created
+                for app in get_apps():
+                    try:
+                        __import__('%s.%s' % (app.__name__, TEST_MODULE), {}, {}, TEST_MODULE)
+                    except ImportError:
+                        pass
                 old_names, mirrors = super(new, self).setup_databases(*args, **kwargs)
             
             signals.post_syncdb.receivers = post_syncdb_receivers
