@@ -20,6 +20,9 @@ Install
 
 You'll need to be running Django 1.2 or newer currently.
 
+If you are using Redis you will need to install a patched version of Kombu after other dependancies. The repo is available
+on GitHub and solves a problem with dynamic queue creation and consumption in Redis. https://github.com/disqus/kombu
+
 Add Mule to your ``INSTALLED_APPS``::
 
     INSTALLED_APPS = (
