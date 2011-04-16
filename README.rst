@@ -1,6 +1,15 @@
 Mule is a generic framework for distributing tests using Celery. It also provides many tools
 such as xunit, multi-processing (without Celery), and general optimizations for unittest/2.
 
+MULE IS IN DEVELOPMENT AND UNSTABLE
+MULE IS IN DEVELOPMENT AND UNSTABLE
+MULE IS IN DEVELOPMENT AND UNSTABLE
+MULE IS IN DEVELOPMENT AND UNSTABLE
+MULE IS IN DEVELOPMENT AND UNSTABLE
+MULE IS IN DEVELOPMENT AND UNSTABLE
+
+With that in mind, continue to the install guide :)
+
 Install
 =======
 
