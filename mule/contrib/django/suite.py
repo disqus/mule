@@ -285,7 +285,7 @@ def make_suite_runner(parent):
                 # Ensure we import all tests that could possibly be executed so that tables get created
                 for app in get_apps():
                     try:
-                        __import__('%s.%s' % (app.__name__, TEST_MODULE), {}, {}, TEST_MODULE)
+                        __import__('%s.%s' % (app.__name__.rsplit('.', 1)[0], TEST_MODULE), {}, {}, TEST_MODULE)
                     except ImportError:
                         pass
                 old_names, mirrors = super(new, self).setup_databases(*args, **kwargs)
