@@ -10,6 +10,7 @@ from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner, build_suite, reorder_suite, TEST_MODULE
+from imp import find_module
 from mule.base import Mule, MultiProcessMule, FailFastInterrupt
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner, _TextTestResult
@@ -49,6 +50,28 @@ def release_database_lock(build_id, db_num):
 def lock_for_database(build_id, db_num=0):
     return os.path.join(LOCK_DIR, 'mule.contrib.django:db_%s_%s' % (build_id, db_num))
 
+def get_test_module(module):
+    try:
+        test_module = __import__('%s.%s' % (module.__name__.rsplit('.', 1)[0], TEST_MODULE), {}, {}, TEST_MODULE)
+    except ImportError, e:
+        # Couldn't import tests.py. Was it due to a missing file, or
+        # due to an import error in a tests.py that actually exists?
+        try:
+            mod = find_module(TEST_MODULE, [os.path.dirname(module.__file__)])
+        except ImportError:
+            # 'tests' module doesn't exist. Move on.
+            test_module = None
+        else:
+            # The module exists, so there must be an import error in the
+            # test module itself. We don't need the module; so if the
+            # module was a single file module (i.e., tests.py), close the file
+            # handle returned by find_module. Otherwise, the test module
+            # is a directory, and there is nothing to close.
+            if mod[0]:
+                mod[0].close()
+            raise
+    return test_module
+
 def build_test(label):
     """Construct a test case with the specified label. Label should be of the
     form model.TestClass or model.TestClass.test_method. Returns an
@@ -56,7 +79,13 @@ def build_test(label):
     """
     # TODO: Refactor this as the code sucks
 
-    imp = import_string(label)
+    try:
+        imp = import_string(label)
+    except AttributeError:
+        # XXX: Handle base_module.TestCase shortcut (assumption)
+        module_name, class_name = label.rsplit('.', 1)
+        imp = import_string(module_name)
+        imp = import_string('%s.%s' % (get_test_module(imp).__name__, class_name))
     
     if isinstance(imp, types.ModuleType):
         return build_suite(imp)
@@ -284,10 +313,7 @@ def make_suite_runner(parent):
             else:
                 # Ensure we import all tests that could possibly be executed so that tables get created
                 for app in get_apps():
-                    try:
-                        __import__('%s.%s' % (app.__name__.rsplit('.', 1)[0], TEST_MODULE), {}, {}, TEST_MODULE)
-                    except ImportError:
-                        pass
+                    get_test_module(app)
                 old_names, mirrors = super(new, self).setup_databases(*args, **kwargs)
             
             signals.post_syncdb.receivers = post_syncdb_receivers

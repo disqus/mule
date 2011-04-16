@@ -1,4 +1,4 @@
-# This is just an examlpe configuration file
+# This is just an example configuration file
 
 CELERY_RESULT_BACKEND = 'redis'
 CELERY_IMPORTS = ('mule.tasks', )
