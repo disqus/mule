@@ -12,6 +12,7 @@ import os.path
 tests_require = [
     'redis',
     'unittest2',
+    'dingus',
 ]
 setup(
     name='Mule',
