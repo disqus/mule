@@ -2,10 +2,15 @@ Mule is a generic framework for distributing tests using Celery. It also provide
 such as xunit, multi-processing (without Celery), and general optimizations for unittest/2.
 
 MULE IS IN DEVELOPMENT AND UNSTABLE
+
 MULE IS IN DEVELOPMENT AND UNSTABLE
+
 MULE IS IN DEVELOPMENT AND UNSTABLE
+
 MULE IS IN DEVELOPMENT AND UNSTABLE
+
 MULE IS IN DEVELOPMENT AND UNSTABLE
+
 MULE IS IN DEVELOPMENT AND UNSTABLE
 
 With that in mind, continue to the install guide :)
@@ -35,7 +40,6 @@ Mule provides the following features on top of the default Django test runner:
 - The ability to specify the full paths to module and tests to run (rather than just shorthand app.TestName).
 
 - Specification of the database name to use at run-time (with --db-prefix)
-
 
 Distributed Flow
 ================
