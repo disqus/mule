@@ -76,20 +76,13 @@ General
   
   otherwise we have to hack up xunit :(
 
-- mule.process should support async callbacks so that results could be reported a lot quicker, and in smaller
-  portions (otherwise the master isnt doing much work until the end, when its bulk work).
-
 - The Django test suite runner should be mostly a mixin class so that we can reuse the core of it as a generic unittest/2
   suite runner.
   
-- mule_teardown needs to ensure it wipes ALL jobs in the current queue
-
 Django Integration
 ------------------
 
 - The short version of app names doesnt work currently. e.g. forums.TestCase
-
-- Implement support for --failfast under distributed models
 
 - Text runner output doesnt support verbosity levels correctly (for non-errors/failures):
 
