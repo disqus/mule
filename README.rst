@@ -1,4 +1,35 @@
-Basic flow (assuming Django):
+Mule is a generic framework for distributing tests using Celery. It also provides many tools
+such as xunit, multi-processing (without Celery), and general optimizations for unittest/2.
+
+Install
+=======
+
+You'll need to be running Django 1.2 or newer currently.
+
+Add Mule to your ``INSTALLED_APPS``::
+
+    INSTALLED_APPS = (
+        # placement doesnt matter
+        'mule.contrib.django',
+    )
+
+Run ``python manage.py mule`` in place of the ``test`` command.
+
+Mule provides the following features on top of the default Django test runner:
+
+- XUnit integration (with --xunit, --xunit-output).
+
+- Distributed testing with Celery (with --distributed), and single box multi-processing (with --multiprocess).
+
+- Inclusion and exclusion support by TestCase class (with --include and --exclude).
+
+- The ability to specify the full paths to module and tests to run (rather than just shorthand app.TestName).
+
+- Specification of the database name to use at run-time (with --db-prefix)
+
+
+Distributed Flow
+================
 
 1. You run ./manage.py mule --distributed
 
