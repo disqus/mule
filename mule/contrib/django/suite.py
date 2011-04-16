@@ -349,7 +349,7 @@ def make_suite_runner(parent):
             # and everything else goes to our logs
             start = time.time()
             if self.worker:
-                stderr, stdout = StringIO(), StringIO()
+                stdout = StringIO()
                 sys_stdout = sys.stdout
                 sys.stdout = stdout
                 output = sys_stdout
