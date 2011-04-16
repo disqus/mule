@@ -33,6 +33,7 @@ class Worker(Thread):
                 })
             finally:
                 self.tasks.task_done()
+            return 'foo'
 
 class ThreadPool:
     """Pool of threads consuming tasks from a queue"""
@@ -50,9 +51,9 @@ class ThreadPool:
         """Wait for completion of all the tasks in the queue"""
         try:
             self.tasks.join()
+            return _results[id(self)]
         except KeyboardInterrupt:
             print '\nReceived keyboard interrupt, closing workers.\n'
+            return _results[id(self)]
         finally:
             del _results[id(self)]
-
-        return _results[id(self)]
