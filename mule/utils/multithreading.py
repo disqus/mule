@@ -2,8 +2,6 @@ from collections import defaultdict
 from Queue import Queue
 from threading import Thread
 
-import time
-
 _results = defaultdict(list)
 
 class Worker(Thread):
@@ -51,15 +49,9 @@ class ThreadPool:
     def join(self):
         """Wait for completion of all the tasks in the queue"""
         try:
-            while self.workers and not self.tasks.empty():
-                # Ensure we clean out dead workers
-                for worker in list(self.workers):
-                    if not worker.is_alive:
-                        self.workers.pop(self.workers.index(worker))
-                
-                time.sleep(0.5)
+            self.tasks.join()
         except KeyboardInterrupt:
-            print '\n! Received keyboard interrupt, closing workers.\n'
+            print '\nReceived keyboard interrupt, closing workers.\n'
         finally:
             del _results[id(self)]
 
