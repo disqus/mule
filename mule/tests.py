@@ -3,7 +3,16 @@ from unittest2 import TestCase
 from dingus import Dingus
 from mule.base import Mule
 from mule import conf
-from mule.tasks import run_test, mule_provision
+from mule.tasks import run_test, mule_provision, mule_teardown
+
+def dingus_calls_to_dict(obj):
+    # remap dingus calls into a useable dict
+    calls = {}
+    for name, args, kwargs, obj in obj:
+        if name not in calls:
+            calls[name] = []
+        calls[name].append((args, kwargs, obj))
+    return calls
 
 class TestRunnerTestCase(TestCase):
     def test_discovery(self):
@@ -82,3 +91,46 @@ class PanelTestCase(TestCase):
             "status": "ok",
             "build_id": 1,
         })
+        
+        calls = dingus_calls_to_dict(panel.consumer.task_consumer.calls)
+                
+        self.assertTrue('cancel_by_queue' in calls)
+        self.assertTrue(len(calls['cancel_by_queue']), 1)
+        call = calls['cancel_by_queue'][0]
+        self.assertTrue(len(call[0]), 1)
+        self.assertTrue(call[0][0], conf.DEFAULT_QUEUE)
+
+        self.assertTrue('consume' in calls)
+        self.assertTrue(len(calls['consume']), 1)
+        
+        self.assertTrue('add_consumer_from_dict' in calls)
+        self.assertTrue(len(calls['add_consumer_from_dict']), 1)
+        call = calls['add_consumer_from_dict'][0]
+        self.assertTrue('queue' in call[1])
+        self.assertEquals(call[1]['queue'], '%s-1' % conf.BUILD_QUEUE_PREFIX)
+
+    def test_teardown(self):
+        panel = Dingus('Panel')
+        result = mule_teardown(panel, 1)
+
+        self.assertEquals(result, {
+            "status": "ok",
+            "build_id": 1,
+        })
+        
+        calls = dingus_calls_to_dict(panel.consumer.task_consumer.calls)
+                
+        self.assertTrue('cancel_by_queue' in calls)
+        self.assertTrue(len(calls['cancel_by_queue']), 1)
+        call = calls['cancel_by_queue'][0]
+        self.assertTrue(len(call[0]), 1)
+        self.assertTrue(call[0][0], '%s-1' % conf.BUILD_QUEUE_PREFIX)
+
+        self.assertTrue('consume' in calls)
+        self.assertTrue(len(calls['consume']), 1)
+        
+        self.assertTrue('add_consumer_from_dict' in calls)
+        self.assertTrue(len(calls['add_consumer_from_dict']), 1)
+        call = calls['add_consumer_from_dict'][0]
+        self.assertTrue('queue' in call[1])
+        self.assertEquals(call[1]['queue'], conf.DEFAULT_QUEUE)
