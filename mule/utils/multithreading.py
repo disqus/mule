@@ -13,7 +13,12 @@ class Worker(Thread):
         self.start()
     
     def run(self):
+        skip = False
         while True:
+            if skip:
+                self.tasks.task_done()
+                continue
+            
             func, args, kwargs, ident = self.tasks.get()
             try:
                 _results[ident].append({
@@ -23,7 +28,7 @@ class Worker(Thread):
                     'result': func(*args, **kwargs),
                 })
             except (KeyboardInterrupt, SystemExit):
-                return
+                skip = True
             except Exception, e:
                 _results[ident].append({
                     'func': func,
@@ -33,7 +38,6 @@ class Worker(Thread):
                 })
             finally:
                 self.tasks.task_done()
-            return 'foo'
 
 class ThreadPool:
     """Pool of threads consuming tasks from a queue"""
