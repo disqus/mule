@@ -13,11 +13,11 @@ class Worker(Thread):
         self.start()
     
     def run(self):
-        skip = False
+        interrupt = False
         while True:
             func, args, kwargs, ident = self.tasks.get()
 
-            if skip:
+            if interrupt:
                 self.tasks.task_done()
                 continue
             
@@ -28,8 +28,14 @@ class Worker(Thread):
                     'kwargs': kwargs,
                     'result': func(*args, **kwargs),
                 })
-            except (KeyboardInterrupt, SystemExit):
-                skip = True
+            except KeyboardInterrupt, e:
+                _results[ident].append({
+                    'func': func,
+                    'args': args,
+                    'kwargs': kwargs,
+                    'result': e.args[0],
+                })
+                interrupt = True
             except Exception, e:
                 _results[ident].append({
                     'func': func,

@@ -427,7 +427,7 @@ def make_suite_runner(parent):
                 skips = 0
             
             if self.failfast and (errors or failures):
-                raise FailFastInterrupt()
+                raise FailFastInterrupt(result)
         
         def suite_result(self, suite, result, total_time, **kwargs):
             if self.distributed or self.multiprocess:
