@@ -93,3 +93,5 @@ Django Integration
 
 - The Disqus selenium test should have been reported as skipped, but wasn't. It caused metric tons of timeouts and consumed way too
   much cpu time.
+ 
+- Add proper KeyboardInterrupt support (for non-failfast) as exists in Django proper.

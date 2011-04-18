@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 from cStringIO import StringIO
 from django.conf import settings
+from django.core.management import call_command
 from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
@@ -291,6 +292,11 @@ def make_suite_runner(parent):
             post_syncdb_receivers = signals.post_syncdb.receivers
             signals.post_syncdb.receivers = []
 
+            # Ensure we import all tests that could possibly be executed so that tables get created
+            # and all signals get registered
+            for app in get_apps():
+                get_test_module(app)
+
             if not bootstrap:
                 old_names = []
                 mirrors = []
@@ -298,8 +304,8 @@ def make_suite_runner(parent):
                     connection = connections[alias]
 
                     # Ensure NAME is now set to TEST_NAME
-                    connection.settings_dict['NAME'] = connection.settings_dict['TEST_NAME']
-                    settings.DATABASES[alias]['NAME'] = settings.DATABASES[alias]['TEST_NAME']
+                    connection.settings_dict['NAME'] = settings.DATABASES[alias]['TEST_NAME']
+                    # settings.DATABASES[alias]['NAME'] = settings.DATABASES[alias]['TEST_NAME']
 
                     # Ensure we end up on the correct database
                     connection.close()
@@ -313,10 +319,21 @@ def make_suite_runner(parent):
                         can_rollback = connection.creation._rollback_works()
                         # Ensure we setup ``SUPPORTS_TRANSACTIONS``
                         connection.settings_dict['SUPPORTS_TRANSACTIONS'] = can_rollback
+
+                        # Get a cursor (even though we don't need one yet). This has
+                        # the side effect of initializing the test database.
+                        cursor = connection.cursor()
+
+                        # Ensure our database is clean
+                        call_command('flush', verbosity=0, interactive=False, database=alias)
+
+                    # XXX: do we need to flush the cache db?
+
+                    # if settings.CACHE_BACKEND.startswith('db://'):
+                    #     from django.core.cache import parse_backend_uri
+                    #     _, cache_name, _ = parse_backend_uri(settings.CACHE_BACKEND)
+                    #     call_command('createcachetable', cache_name)
             else:
-                # Ensure we import all tests that could possibly be executed so that tables get created
-                for app in get_apps():
-                    get_test_module(app)
                 old_names, mirrors = super(new, self).setup_databases(*args, **kwargs)
             
             signals.post_syncdb.receivers = post_syncdb_receivers
@@ -364,7 +381,7 @@ def make_suite_runner(parent):
 
                 for k, v in settings.DATABASES.iteritems():
                     # If TEST_NAME wasnt set, or we've set a non-default prefix
-                    if 'TEST_NAME' not in v or self.auto_bootstrap:
+                    if not v.get('TEST_NAME') or self.auto_bootstrap:
                         settings.DATABASES[k]['TEST_NAME'] = db_prefix + settings.DATABASES[k]['NAME']
 
                 self.db_prefix = db_prefix
@@ -482,7 +499,7 @@ def make_suite_runner(parent):
                     elif r['stderr']:
                         # TODO: Need to handle xunit here.. somehow
                         # TODO: need to handle when stderr isnt even present
-                        sys.stdout.write(r['stderr'])
+                        sys.stdout.write(r['stderr'].strip() + '\n')
                         sys.stdout.write(_TextTestResult.separator2 + '\n')
                         # Need to track this for the builds
                         errors += 1
