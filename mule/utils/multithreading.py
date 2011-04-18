@@ -15,11 +15,12 @@ class Worker(Thread):
     def run(self):
         skip = False
         while True:
+            func, args, kwargs, ident = self.tasks.get()
+
             if skip:
                 self.tasks.task_done()
                 continue
             
-            func, args, kwargs, ident = self.tasks.get()
             try:
                 _results[ident].append({
                     'func': func,
