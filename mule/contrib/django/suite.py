@@ -163,15 +163,17 @@ def make_suite_runner(parent):
                         help='Fire test jobs off to Celery queue and collect results.'),
             make_option('--multiprocess', dest='multiprocess', action='store_true',
                         help='Spawns multiple processes (controlled within threads) to test concurrently.'),
+            make_option('--max-workers', dest='max_workers', type='int', metavar="NUM",
+                        help='Number of workers to consume. With multi-process this is the number of processes to spawn. With distributed this is the number of Celeryd servers to consume.'),
             make_option('--worker', dest='worker', action='store_true',
                         help='Identifies this runner as a worker of a distributed test runner.'),
             make_option('--xunit', dest='xunit', action='store_true',
                         help='Outputs results in XUnit format.'),
-            make_option('--xunit-output', dest='xunit_output', default="./xunit/",
+            make_option('--xunit-output', dest='xunit_output', default="./xunit/", metavar="PATH",
                         help='Specifies the output directory for XUnit results.'),
-            make_option('--include', dest='include',
+            make_option('--include', dest='include', metavar="CLASSNAMES",
                         help='Specifies inclusion cases (TestCaseClassName) for the job detection.'),
-            make_option('--exclude', dest='exclude',
+            make_option('--exclude', dest='exclude', metavar="CLASSNAMES",
                         help='Specifies exclusion cases (TestCaseClassName) for the job detection.'),
         ) + getattr(parent, 'options', ())
 
@@ -205,6 +207,7 @@ def make_suite_runner(parent):
                 self.exclude_testcases = [import_string(i) for i in kwargs.pop('exclude').split(',')]
             else:
                 self.exclude_testcases = None
+            self.max_workers = kwargs.pop('max_workers')
     
         def run_suite(self, suite, output=None):
             if self.worker or self.xunit:
@@ -347,7 +350,7 @@ def make_suite_runner(parent):
             base_cmd = 'python manage.py mule --auto-bootstrap --worker --id=%s' % build_id
             if self.failfast:
                 base_cmd += ' --failfast'
-            mule = cls(build_id=build_id)
+            mule = cls(build_id=build_id, max_workers=self.max_workers)
             result = mule.process(test_labels, runner='%s $TEST' % (base_cmd,),
                                   callback=self.report_result)
             # result should now be some parseable text
