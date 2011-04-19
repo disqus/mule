@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from django.conf import settings
 # from django.test.utils import get_runner
 from mule.contrib.django.suite import DjangoTestSuiteRunner
+from mule.utils.conf import configure
 
 if 'south' in settings.INSTALLED_APPS:
     from south.management.commands.test import Command as TestCommand
@@ -19,6 +20,8 @@ class Command(TestCommand):
     option_list = TestCommand.option_list + tuple(getattr(TestRunner, 'options', []))
     
     def handle(self, *test_labels, **options):
+        configure(**getattr(settings, 'MULE_CONFIG', {}))
+        
         settings.TEST = True
         settings.DEBUG = False
 

@@ -40,7 +40,7 @@ class Mule(object):
         """
         self.logger.info("Processing build %s", self.build_id)
 
-        self.logger.info("Provisioning %d worker(s)", self.max_workers)
+        self.logger.info("Provisioning (up to) %d worker(s)", self.max_workers)
         
         actual = None
         
@@ -79,7 +79,7 @@ class Mule(object):
             # We should begin running tests and possibly add more, but its not a big deal
             pass
 
-        self.logger.info('%d worker(s) provisioned', len(actual))
+        self.logger.info('%d worker(s) were provisioned', len(actual))
             
         self.logger.info("Building queue of %d test job(s)", len(jobs))
         
