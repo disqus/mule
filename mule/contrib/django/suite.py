@@ -287,15 +287,22 @@ def make_suite_runner(parent):
             else:
                 bootstrap = True
             
-            # HACK: We need to kill post_syncdb receivers to stop them from sending when the databases
-            #       arent fully ready.
-            post_syncdb_receivers = signals.post_syncdb.receivers
-            signals.post_syncdb.receivers = []
-
             # Ensure we import all tests that could possibly be executed so that tables get created
             # and all signals get registered
             for app in get_apps():
                 get_test_module(app)
+
+                # Import the 'management' module within each installed app, to register
+                # dispatcher events.
+                try:
+                    import_string('%s.management' % app.__name__.rsplit('.', 1)[0])
+                except (ImportError, AttributeError):
+                    pass
+
+            # HACK: We need to kill post_syncdb receivers to stop them from sending when the databases
+            #       arent fully ready.
+            post_syncdb_receivers = signals.post_syncdb.receivers
+            signals.post_syncdb.receivers = []
 
             if not bootstrap:
                 old_names = []
@@ -303,19 +310,16 @@ def make_suite_runner(parent):
                 for alias in connections:
                     connection = connections[alias]
 
-                    # Ensure NAME is now set to TEST_NAME
-                    connection.settings_dict['NAME'] = settings.DATABASES[alias]['TEST_NAME']
-                    # settings.DATABASES[alias]['NAME'] = settings.DATABASES[alias]['TEST_NAME']
-
-                    # Ensure we end up on the correct database
-                    connection.close()
-
                     if connection.settings_dict['TEST_MIRROR']:
                         mirrors.append((alias, connection))
                         mirror_alias = connection.settings_dict['TEST_MIRROR']
                         connections._connections[alias] = DatabaseProxy(connections[mirror_alias], alias)
                     else:
                         old_names.append((connection, connection.settings_dict['NAME']))
+
+                        # Ensure NAME is now set to TEST_NAME
+                        connection.settings_dict['NAME'] = settings.DATABASES[alias]['TEST_NAME']
+
                         can_rollback = connection.creation._rollback_works()
                         # Ensure we setup ``SUPPORTS_TRANSACTIONS``
                         connection.settings_dict['SUPPORTS_TRANSACTIONS'] = can_rollback
@@ -341,12 +345,11 @@ def make_suite_runner(parent):
             # XXX: we could truncate all tables in the teardown phase and
             #      run the syncdb steps on each iteration (to ensure compatibility w/ transactions)
             for app in get_apps():
+                app_models = list(get_models(app, include_auto_created=True))
                 for db in connections:
-                    all_models = [
-                        [(app.__name__.split('.')[-2],
-                            [m for m in get_models(app, include_auto_created=True)
-                            if router.allow_syncdb(db, m)])]
-                    ]
+                    all_models = [m for m in app_models if router.allow_syncdb(db, m)]
+                    if not all_models:
+                        continue
                     signals.post_syncdb.send(app=app, created_models=all_models, verbosity=self.verbosity,
                                              db=db, sender=app, interactive=False)
             
