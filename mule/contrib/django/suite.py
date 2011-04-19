@@ -211,18 +211,23 @@ def make_suite_runner(parent):
             self.max_workers = kwargs.pop('max_workers')
     
         def run_suite(self, suite, output=None):
+            kwargs = {
+                'verbosity': self.verbosity,
+                'failfast': self.failfast,
+            }
             if self.worker or self.xunit:
                 cls = XMLTestRunner
-                kwargs = {
-                    'output': output,
-                }
+                kwargs['output'] = output
             else:
                 cls = TextTestRunner
-                kwargs = {}
 
+            if self.worker:
+                # We dont output anything
+                kwargs['verbosity'] = 0
+            
             cls = make_test_runner(cls)
         
-            result = cls(verbosity=self.verbosity, failfast=self.failfast, **kwargs).run(suite)
+            result = cls(**kwargs).run(suite)
 
             return result
 
@@ -499,22 +504,20 @@ def make_suite_runner(parent):
                                 if error_msg:
                                     sys.stdout.write(_TextTestResult.separator2 + '\n')
                                     sys.stdout.write('%s\n' % error_msg)
+                        if had_res:
+                            syserr = (''.join(c.wholeText for c in xml.getElementsByTagName('system-err')[0].childNodes if c.nodeType == c.CDATA_SECTION_NODE)).strip()
+                            if syserr:
+                                sys.stdout.write(_TextTestResult.separator2 + '\n')
+                                sys.stdout.write('%s\n' % r['stderr'].strip())
+                            # if r['stderr']:
+                            #     sys.stdout.write(_TextTestResult.separator2 + '\n')
+                            #     sys.stdout.write('%s\n' % r['stderr'].strip())
                     elif r['stderr']:
                         had_res = True
                         sys.stdout.write(_TextTestResult.separator1 + '\n')
                         sys.stdout.write('EXCEPTION: %s\n' % r['job'])
                         sys.stdout.write(_TextTestResult.separator1 + '\n')
                         sys.stdout.write(r['stderr'].strip() + '\n')
-                        sys.stdout.write(_TextTestResult.separator2 + '\n')
-                        errors += 1
-                        tests += 1
-                    else:
-                        had_res = True
-                        sys.stdout.write(_TextTestResult.separator1 + '\n')
-                        sys.stdout.write('EXCEPTION: %s\n' % r['job'])
-                        sys.stdout.write(_TextTestResult.separator1 + '\n')
-                        sys.stdout.write('(No output was recorded)\n')
-                        sys.stdout.write(_TextTestResult.separator2 + '\n')
                         errors += 1
                         tests += 1
 

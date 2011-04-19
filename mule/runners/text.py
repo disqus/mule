@@ -168,9 +168,10 @@ class TextTestRunner(TextTestRunner):
         result = self._makeResult()
         
         # Print a nice header
-        self.stream.writeln()
-        self.stream.writeln('Running tests...')
-        self.stream.writeln(result.separator2)
+        if self.verbosity > 0:
+            self.stream.writeln()
+            self.stream.writeln('Running tests...')
+            self.stream.writeln(result.separator2)
         
         # Execute tests
         start_time = time.time()
@@ -179,32 +180,32 @@ class TextTestRunner(TextTestRunner):
         time_taken = stop_time - start_time
         
         # Print results
-        result.printErrors()
-        self.stream.writeln(result.separator2)
-        run = result.testsRun
-        self.stream.writeln("Ran %d test%s in %.3fs" %
-            (run, run != 1 and "s" or "", time_taken))
-        self.stream.writeln()
+        if self.verbosity > 0:
+            result.printErrors()
+            self.stream.writeln(result.separator2)
+            run = result.testsRun
+            self.stream.writeln("Ran %d test%s in %.3fs" %
+                (run, run != 1 and "s" or "", time_taken))
+            self.stream.writeln()
         
-        # Error traces
-        if not result.wasSuccessful():
-            self.stream.write("FAILED (")
-            failed, errored, skipped = (len(result.failures), len(result.errors), len(result.skipped))
-            if failed:
-                self.stream.write("failures=%d" % failed)
-            if errored:
+            # Error traces
+            if not result.wasSuccessful():
+                self.stream.write("FAILED (")
+                failed, errored, skipped = (len(result.failures), len(result.errors), len(result.skipped))
                 if failed:
-                    self.stream.write(", ")
-                self.stream.write("errors=%d" % errored)
-            if skipped:
-                if failed or errored:
-                    self.stream.write(", ")
-                self.stream.write("skipped=%d" % skipped)
-            self.stream.writeln(")")
-        else:
-            self.stream.writeln("OK")
+                    self.stream.write("failures=%d" % failed)
+                if errored:
+                    if failed:
+                        self.stream.write(", ")
+                    self.stream.write("errors=%d" % errored)
+                if skipped:
+                    if failed or errored:
+                        self.stream.write(", ")
+                    self.stream.write("skipped=%d" % skipped)
+                self.stream.writeln(")")
+            else:
+                self.stream.writeln("OK")
         
-        # Generate reports
-        self.stream.writeln()
+            self.stream.writeln()
         
         return result
