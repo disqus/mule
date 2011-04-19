@@ -36,6 +36,8 @@ Run ``python manage.py mule`` in place of the ``test`` command.
 
 Mule provides the following features on top of the default Django test runner:
 
+- Support for skipped test (matches any exception called "SkippedTest").
+
 - XUnit integration (with --xunit, --xunit-output).
 
 - Distributed testing with Celery (with --distributed), and single box multi-processing (with --multiprocess).
