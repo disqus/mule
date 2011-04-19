@@ -95,3 +95,7 @@ Django Integration
   much cpu time.
  
 - Add proper KeyboardInterrupt support (for non-failfast) as exists in Django proper.
+
+- Mule should import app.mule for registering hooks
+
+- Mule should support a post_setup, and pre_teardown method so that things like REDIS_DB can be changed based on runner.

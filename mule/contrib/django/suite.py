@@ -500,6 +500,10 @@ def make_suite_runner(parent):
                                     sys.stdout.write(_TextTestResult.separator2 + '\n')
                                     sys.stdout.write('%s\n' % error_msg)
                     elif r['stderr']:
+                        had_res = True
+                        sys.stdout.write(_TextTestResult.separator1 + '\n')
+                        sys.stdout.write('EXCEPTION: %s\n' % r['job'])
+                        sys.stdout.write(_TextTestResult.separator1 + '\n')
                         # TODO: Need to handle xunit here.. somehow
                         # TODO: need to handle when stderr isnt even present
                         sys.stdout.write(r['stderr'].strip() + '\n')
