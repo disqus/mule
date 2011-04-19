@@ -504,11 +504,17 @@ def make_suite_runner(parent):
                         sys.stdout.write(_TextTestResult.separator1 + '\n')
                         sys.stdout.write('EXCEPTION: %s\n' % r['job'])
                         sys.stdout.write(_TextTestResult.separator1 + '\n')
-                        # TODO: Need to handle xunit here.. somehow
-                        # TODO: need to handle when stderr isnt even present
                         sys.stdout.write(r['stderr'].strip() + '\n')
                         sys.stdout.write(_TextTestResult.separator2 + '\n')
-                        # Need to track this for the builds
+                        errors += 1
+                        tests += 1
+                    else:
+                        had_res = True
+                        sys.stdout.write(_TextTestResult.separator1 + '\n')
+                        sys.stdout.write('EXCEPTION: %s\n' % r['job'])
+                        sys.stdout.write(_TextTestResult.separator1 + '\n')
+                        sys.stdout.write('(No output was recorded)\n')
+                        sys.stdout.write(_TextTestResult.separator2 + '\n')
                         errors += 1
                         tests += 1
 
@@ -518,7 +524,7 @@ def make_suite_runner(parent):
                 run = tests - skips
                 sys.stdout.write("\nRan %d test%s in %.3fs\n\n" % (run, run != 1 and "s" or "", total_time))
                 
-                if errors or failures or skips:
+                if errors or failures:
                     sys.stdout.write("FAILED (")
                     if failures:
                         sys.stdout.write("failures=%d" % failures)
@@ -530,10 +536,13 @@ def make_suite_runner(parent):
                         if failures or errors:
                             sys.stdout.write(", ")
                         sys.stdout.write("skipped=%d" % skips)
-                    sys.stdout.write(")\n\n")
+                    sys.stdout.write(")")
                 else:
-                    sys.stdout.write("OK\n\n")
-                
+                    sys.stdout.write("OK")
+                    if skips:
+                        sys.stdout.write(" (skipped=%d)" % skips)
+
+                sys.stdout.write('\n\n')
                 return failures + errors
             return super(new, self).suite_result(suite, result, **kwargs)
 
