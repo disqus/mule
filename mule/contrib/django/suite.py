@@ -502,6 +502,7 @@ def make_suite_runner(parent):
                                 sys.stdout.write(_TextTestResult.separator1 + '\n')
                                 sys.stdout.write('%s [%.3fs]: %s\n' % \
                                     (xml_test_res.nodeName.upper(), float(xml_test.getAttribute('time') or '0.0'), desc))
+                                sys.stdout.write('(Job was %s)\n' % r['job'])
                                 error_msg = (''.join(c.wholeText for c in xml_test_res.childNodes if c.nodeType == c.CDATA_SECTION_NODE)).strip()
                                 if error_msg:
                                     sys.stdout.write(_TextTestResult.separator2 + '\n')
