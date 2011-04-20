@@ -81,6 +81,13 @@ General
 - The Django test suite runner should be mostly a mixin class so that we can reuse the core of it as a generic unittest/2
   suite runner.
   
+- Refactor the test discovery so that we can do full-on grep-like notation. e.g. disqus.*.api
+  
+- Support a post_setup, pre_teardown signals so that things like REDIS_DB can be changed based on runner.
+
+- Improve locking mechanisms so they're easier to reuse. Possibly include support for something like Zookeeper for distributed
+  locking.
+
 Django Integration
 ------------------
 
@@ -98,6 +105,4 @@ Django Integration
  
 - Add proper KeyboardInterrupt support (for non-failfast) as exists in Django proper.
 
-- Mule should import app.mule for registering hooks
-
-- Mule should support a post_setup, and pre_teardown method so that things like REDIS_DB can be changed based on runner.
+- Automatically import all app.mule for registering hooks

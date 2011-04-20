@@ -13,6 +13,7 @@ from django.db.models import get_app, get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner, build_suite, reorder_suite, TEST_MODULE
 from imp import find_module
 from mule.base import Mule, MultiProcessMule, FailFastInterrupt
+from mule.contrib.django.signals import post_test_setup
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner, _TextTestResult
 from mule.utils import import_string, acquire_lock, release_lock
@@ -113,7 +114,7 @@ def make_test_runner(parent):
             """
             self._default_keyboard_interrupt_handler = signal.signal(signal.SIGINT,
                 self._keyboard_interrupt_handler)
-            # post_test_setup.send(sender=self.__class__, runner=self)
+            post_test_setup.send(sender=self.__class__, runner=self)
 
             try:
                 result = super(new, self).run(*args, **kwargs)
@@ -496,6 +497,7 @@ def make_suite_runner(parent):
                                 if xml_test_res.nodeName not in ('failure', 'skip', 'error'):
                                     continue
                                 had_res = True
+                                res_type = xml_test.getAttribute('name')
                                 desc = '%s (%s)' % (xml_test.getAttribute('name'), xml_test.getAttribute('classname'))
                                 sys.stdout.write(_TextTestResult.separator1 + '\n')
                                 sys.stdout.write('%s [%.3fs]: %s\n' % \
@@ -504,7 +506,7 @@ def make_suite_runner(parent):
                                 if error_msg:
                                     sys.stdout.write(_TextTestResult.separator2 + '\n')
                                     sys.stdout.write('%s\n' % error_msg)
-                        if had_res:
+                        if had_res and res_type in ('failure', 'error'):
                             syserr = (''.join(c.wholeText for c in xml.getElementsByTagName('system-err')[0].childNodes if c.nodeType == c.CDATA_SECTION_NODE)).strip()
                             if syserr:
                                 sys.stdout.write(_TextTestResult.separator2 + '\n')
