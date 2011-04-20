@@ -1,17 +1,7 @@
 Mule is a generic framework for distributing tests using Celery. It also provides many tools
 such as xunit, multi-processing (without Celery), and general optimizations for unittest/2.
 
-MULE IS IN DEVELOPMENT AND UNSTABLE
-
-MULE IS IN DEVELOPMENT AND UNSTABLE
-
-MULE IS IN DEVELOPMENT AND UNSTABLE
-
-MULE IS IN DEVELOPMENT AND UNSTABLE
-
-MULE IS IN DEVELOPMENT AND UNSTABLE
-
-MULE IS IN DEVELOPMENT AND UNSTABLE
+**MULE IS IN DEVELOPMENT AND UNSTABLE**
 
 With that in mind, continue to the install guide :)
 
@@ -21,6 +11,8 @@ Install
 =======
 
 You'll need to be running Django 1.2 or newer currently.
+
+**Currently Mule mostly-only works with the Django integration**
 
 If you are using Redis you will need to install a patched version of Kombu after other dependancies. The repo is available
 on GitHub and solves a problem with dynamic queue creation and consumption in Redis. https://github.com/disqus/kombu
