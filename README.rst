@@ -7,6 +7,23 @@ With that in mind, continue to the install guide :)
 
 (Please read the TODO to get an idea of what direction the project is heading)
 
+Features
+========
+
+Mule provides the following features on top of the default unittest test runner:
+
+- Support for skipped test (matches any exception called "SkippedTest").
+
+- XUnit integration (with --xunit, --xunit-output).
+
+- Distributed testing with Celery (with --distributed), and single box multi-processing (with --multiprocess).
+
+- Inclusion and exclusion support by TestCase class (with --include and --exclude).
+
+- The ability to specify the full paths to module and tests to run (rather than just shorthand app.TestName).
+
+- Specification of the database name to use at run-time (with --db-prefix)
+
 Install
 =======
 
@@ -14,8 +31,23 @@ You'll need to be running Django 1.2 or newer currently.
 
 **Currently Mule mostly-only works with the Django integration**
 
-If you are using Redis you will need to install a patched version of Kombu after other dependancies. The repo is available
-on GitHub and solves a problem with dynamic queue creation and consumption in Redis. https://github.com/disqus/kombu
+If you are using Redis as your queue backend you will need to install a patched version of Kombu after other dependancies.
+The repo is available on GitHub and solves a problem with dynamic queue creation and consumption in Redis. https://github.com/disqus/kombu
+
+Mule provides integration support with platforms such as Django, but in general will give you distributed test
+runners segregated by TestCaseClass.
+
+Generic
+-------
+
+Run ``mule test --help`` to see command line options. By default Mule is setup to use the unittest2 runner.
+
+For example, to partially-emulate the Django test runner, it might be something like::
+
+    mule test --runner="python manage.py mule --worker --auto-bootstrap $TEST"
+
+Django
+------
 
 Add Mule to your ``INSTALLED_APPS``::
 
