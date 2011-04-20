@@ -16,7 +16,7 @@ tests_require = [
 ]
 setup(
     name='Mule',
-    version='0.1.5',
+    version='0.1.6',
     author='DISQUS',
     author_email='opensource@disqus.com',
     url='http://github.com/disqus/mule',
