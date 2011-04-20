@@ -37,6 +37,9 @@ class _TestInfo(object):
     
     def get_description(self):
         "Return a text representation of the test method."
+        if hasattr(self.test_method, '_dt_test'):
+            print self.test_method._dt_test
+            print dir(self.test_method)
         return self.test_result.getDescription(self.test_method)
     
     def get_error_info(self):

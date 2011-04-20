@@ -1,6 +1,3 @@
-import os
-import fcntl
-
 def import_string(import_name, silent=False):
     """Imports an object based on a string. If *silent* is True the return
     value will be None if the import fails.
@@ -24,20 +21,3 @@ def import_string(import_name, silent=False):
     except (ImportError, AttributeError):
         if not silent:
             raise
-
-locks = {}
-
-def acquire_lock(lock):
-    fd = open(lock, 'w')
-    fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB) # NB = non-blocking (raise IOError instead)
-    fd.write(str(os.getpid()))
-    locks[lock] = fd
-
-def release_lock(lock):
-    fd = locks.pop(lock)
-    if not fd:
-        return
-    fcntl.lockf(fd, fcntl.LOCK_UN)
-    fd.close()
-    os.remove(lock)
-    fd = None

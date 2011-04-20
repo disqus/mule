@@ -11,12 +11,15 @@ from django.db import connections, router
 from django.db.backends import DatabaseProxy
 from django.db.models import get_app, get_apps, get_models, signals
 from django.test.simple import DjangoTestSuiteRunner, build_suite, reorder_suite, TEST_MODULE
+from django.test._doctest import DocTestCase
 from imp import find_module
+from mule.contextmanager import get_context_managers
 from mule.base import Mule, MultiProcessMule, FailFastInterrupt
 from mule.contrib.django.signals import post_test_setup
 from mule.runners.xml import XMLTestRunner
 from mule.runners.text import TextTestRunner, _TextTestResult
-from mule.utils import import_string, acquire_lock, release_lock
+from mule.utils import import_string
+from mule.utils.locking import get_setting_lock, release_setting_lock
 from optparse import make_option
 from xml.dom.minidom import parseString
 
@@ -28,29 +31,6 @@ import time
 import types
 import uuid
 import unittest
-
-LOCK_DIR = '/var/tmp'
-
-def get_database_lock(build_id):
-    # XXX: Pretty sure this needs try/except to stop race condition
-    db_num = 0
-    while True:
-        lock_file = lock_for_database(build_id, db_num)
-        try:
-            acquire_lock(lock_file)
-        except IOError:
-            # lock unavailable
-            db_num += 1
-        else:
-            break
-    return db_num
-
-def release_database_lock(build_id, db_num):
-    lock_file = lock_for_database(build_id, db_num)
-    release_lock(lock_file)
-
-def lock_for_database(build_id, db_num=0):
-    return os.path.join(LOCK_DIR, 'mule.contrib.django:db_%s_%s' % (build_id, db_num))
 
 def get_test_module(module):
     try:
@@ -253,6 +233,9 @@ def make_suite_runner(parent):
             new_suite = unittest.TestSuite()
             
             for test in reorder_suite(suite, (unittest.TestCase,)):
+                # XXX: Doctests (the way we do it currently) do not work
+                if isinstance(test, DocTestCase):
+                    continue
                 if self.include_testcases and not any(isinstance(test, c) for c in self.include_testcases):
                     continue
                 if self.exclude_testcases and any(isinstance(test, c) for c in self.exclude_testcases):
@@ -383,7 +366,13 @@ def make_suite_runner(parent):
             return result
         
         def run_tests(self, *args, **kwargs):
-            db_num = get_database_lock(self.build_id)
+            cms = list()
+            for cls in get_context_managers():
+                cm = cls(self.build_id)
+                cm.__enter__()
+                cms.append(cm)
+
+            db_num = get_setting_lock('db', self.build_id)
             
             try:
                 db_prefix = '%s_%s_%s_' % (self.db_prefix, self.build_id, db_num)
@@ -397,7 +386,9 @@ def make_suite_runner(parent):
 
                 result = self._run_tests(*args, **kwargs)
             finally:
-                release_database_lock(self.build_id, db_num)
+                release_setting_lock('db', self.build_id, db_num)
+                for cm in reversed(cms):
+                    cm.__exit__()
             
             return result
         
