@@ -26,10 +26,7 @@ setup(
     install_requires=[
         'celery',
         'uuid',
-        'kombu',
-    ],
-    dependency_links=[
-        'https://github.com/disqus/kombu/tarball/master#egg=kombu',
+        'kombu==1.1.3',
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require},

@@ -130,3 +130,5 @@ Django Integration
 - Add proper KeyboardInterrupt support (for non-failfast) as exists in Django proper.
 
 - Implement support for doctests
+
+- Need to better organize skipped tests so they appear before failures/errors in results.
