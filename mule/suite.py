@@ -155,8 +155,6 @@ class MuleTestLoader(object):
             for cm in reversed(cms):
                 cm.__exit__(None, None, None)
         
-        result = self.suite_result(suite, result, stop-start)
-        
         return result
 
     def report_result(self, result):
