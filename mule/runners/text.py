@@ -60,7 +60,6 @@ class _TextTestResult(_TextTestResult):
         self.skipped = []
         self.callback = None
         self.elapsed_times = elapsed_times
-        self.pdb = pdb
     
     def _prepare_callback(self, test_info, target_list, verbose_str,
         short_str):
@@ -116,8 +115,6 @@ class _TextTestResult(_TextTestResult):
     
     def addError(self, test, err):
         "Called when a test method raises an error."
-        if self.pdb:
-            import pdb; pdb.set_trace()
         tracebacks = traceback.extract_tb(err[2])
         if tracebacks[-1][-1] and tracebacks[-1][-1].startswith('raise SkippedTest'):
             self._prepare_callback(_TestInfo(self, test, _TestInfo.SKIPPED, err), \
@@ -155,14 +152,13 @@ class TextTestRunner(TextTestRunner):
     def __init__(self, elapsed_times=True, pdb=False, **kwargs):
         super(TextTestRunner, self).__init__(**kwargs)
         self.elapsed_times = elapsed_times
-        self.pdb = pdb
     
     def _makeResult(self):
         """Create the TestResult object which will be used to store
         information about the executed tests.
         """
         return _TextTestResult(self.stream, self.descriptions, \
-            self.verbosity, self.elapsed_times, self.pdb)
+            self.verbosity, self.elapsed_times)
     
     def run(self, test):
         "Run the given test case or test suite."

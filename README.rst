@@ -101,16 +101,10 @@ General
   we could then store additional data like "I did this as part of the build" including timing/profiling data
   
   otherwise we have to hack up xunit :(
-
-- The Django test suite runner should be mostly a mixin class so that we can reuse the core of it as a generic unittest/2
-  suite runner.
-  
+ 
 - Refactor the test discovery so that we can do full-on grep-like notation. e.g. disqus.*.api
   
-- Support a post_setup, pre_teardown signals so that things like REDIS_DB can be changed based on runner.
-
-- Improve locking mechanisms so they're easier to reuse. Possibly include support for something like Zookeeper for distributed
-  locking.
+- Possibly include support for something like Zookeeper for distributed locking.
 
 Django Integration
 ------------------

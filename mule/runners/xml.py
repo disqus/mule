@@ -173,7 +173,7 @@ class XMLTestRunner(TextTestRunner):
         information about the executed tests.
         """
         return _XMLTestResult(self.stream, self.descriptions, \
-            self.verbosity, self.elapsed_times, self.pdb)
+            self.verbosity, self.elapsed_times)
 
     def run(self, test):
         "Run the given test case or test suite."

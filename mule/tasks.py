@@ -90,11 +90,16 @@ def run_test(build_id, runner, job, callback=None):
     Spawns a test runner and reports the result.
     """
     # TODO: we shouldnt need to do this, bash should do it
-    cmd = runner.encode('utf-8').replace('$TEST', job.encode('utf-8'))
+    build_id = build_id.encode('utf-8')
+    job = job.encode('utf-8')
+
+    cmd = runner.encode('utf-8').replace('$TEST', job)
+    cmd = cmd.replace('$BUILD_ID', build_id)
 
     # Setup our environment variables
     env = os.environ.copy()
-    env['TEST'] = job.encode('utf-8')
+    env['TEST'] = job
+    env['BUILD_ID'] = build_id
     
     start = time.time()
     
