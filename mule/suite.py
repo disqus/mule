@@ -112,25 +112,9 @@ class MuleTestLoader(object):
         # result should now be some parseable text
         return result
     
-    def run_tests(self, *args, **kwargs):
-        cms = list()
-        for cls in get_context_managers():
-            cm = cls(build_id=self.build_id, suite=self)
-            cm.__enter__()
-            cms.append(cm)
-
-        try:
-            result = self._run_tests(*args, **kwargs)
-        finally:
-            for cm in reversed(cms):
-                cm.__exit__(None, None, None)
-        
-        return result
-    
-    def _run_tests(self, test_labels, extra_tests=None, **kwargs):
+    def run_tests(self, test_labels, extra_tests=None, **kwargs):
         # We need to swap stdout/stderr so that the task only captures what is needed,
         # and everything else goes to our logs
-        start = time.time()
         if self.worker:
             stdout = StringIO()
             sys_stdout = sys.stdout
@@ -142,20 +126,38 @@ class MuleTestLoader(object):
             else:
                 output = sys.stdout
         
-        suite = self.build_suite(test_labels, extra_tests)
-        
-        if self.distributed or self.multiprocess:
-            # we can only test whole TestCase's currently
-            jobs = set(t.__class__ for t in suite._tests)
-            result = self.run_distributed_tests(jobs, extra_tests=None, in_process=self.multiprocess, **kwargs)
-        else:
-            result = self.run_suite(suite, output=output)
+        cms = list()
+        for cls in get_context_managers():
+            cm = cls(build_id=self.build_id, suite=self)
+            cm.__enter__()
+            cms.append(cm)
 
-        if self.worker:
-            sys.stdout = sys_stdout
+        try:
+            suite = self.build_suite(test_labels, extra_tests)
+
+            start = time.time()
+
+            if self.distributed or self.multiprocess:
+                # we can only test whole TestCase's currently
+                jobs = set(t.__class__ for t in suite._tests)
+                result = self.run_distributed_tests(jobs, extra_tests=None, in_process=self.multiprocess, **kwargs)
+            else:
+                result = self.run_suite(suite, output=output)
+
+            stop = time.time()
+
+            result = self.suite_result(suite, result, stop-start)
+
+        finally:
+            if self.worker:
+                sys.stdout = sys_stdout
+            
+            for cm in reversed(cms):
+                cm.__exit__(None, None, None)
         
-        stop = time.time()
-        return self.suite_result(suite, result, stop-start)
+        result = self.suite_result(suite, result, stop-start)
+        
+        return result
 
     def report_result(self, result):
         if result['stdout']:
@@ -210,7 +212,21 @@ class MuleTestLoader(object):
                 elif r['stdout']:
                     # HACK: Ideally we would let our default text runner represent us here, but that'd require
                     #       reconstructing the original objects which is even more of a hack
-                    xml = parseString(r['stdout'])
+                    try:
+                        xml = parseString(r['stdout'])
+                    except Exception, e:
+                        had_res = True
+                        sys.stdout.write(_TextTestResult.separator1 + '\n')
+                        sys.stdout.write('EXCEPTION: %s (%s)\n' % (e, r['job']))
+                        if r['stdout']:
+                            sys.stdout.write(_TextTestResult.separator1 + '\n')
+                            sys.stdout.write(r['stdout'].strip() + '\n')
+                        if r['stderr']:
+                            sys.stdout.write(_TextTestResult.separator1 + '\n')
+                            sys.stdout.write(r['stdout'].strip() + '\n')
+                        errors += 1
+                        tests += 1
+                        continue
                     for xml_test in xml.getElementsByTagName('testcase'):
                         for xml_test_res in xml_test.childNodes:
                             if xml_test_res.nodeName not in ('failure', 'skip', 'error'):
