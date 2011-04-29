@@ -1,3 +1,12 @@
+"""
+Default configuration values for Mule.
+
+These can be overrriden (in bulk) using:
+
+>>> mule.utils.conf.configure(**settings)
+"""
+
+
 DEFAULT_QUEUE = 'default'
 BUILD_QUEUE_PREFIX = 'mule'
 

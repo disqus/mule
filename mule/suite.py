@@ -28,7 +28,8 @@ class MuleTestLoader(object):
     def __init__(self, build_id='default', distributed=False, worker=False,
                  multiprocess=False, xunit=False, xunit_output='./xunit/',
                  include='', exclude='', max_workers=None, start_dir=None,
-                 loader=defaultTestLoader, base_cmd='unit2 $TEST', *args, **kwargs):
+                 loader=defaultTestLoader, base_cmd='unit2 $TEST', 
+                 workspace=None, *args, **kwargs):
 
         assert not (distributed and worker and multiprocess), "You cannot combine --distributed, --worker, and --multiprocess"
         
@@ -53,6 +54,7 @@ class MuleTestLoader(object):
         self.loader = loader
         
         self.base_cmd = base_cmd
+        self.workspace = workspace
         
     def run_suite(self, suite, output=None, run_callback=None):
         kwargs = {
@@ -106,7 +108,7 @@ class MuleTestLoader(object):
         else:
             cls = Mule
         build_id = uuid.uuid4().hex
-        mule = cls(build_id=build_id, max_workers=self.max_workers)
+        mule = cls(build_id=build_id, max_workers=self.max_workers, workspace=self.workspace)
         result = mule.process(test_labels, runner=self.base_cmd,
                               callback=self.report_result)
         # result should now be some parseable text

@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 from django.conf import settings
-# from django.test.utils import get_runner
 from mule.contrib.django.suite import DjangoTestSuiteRunner
 from mule.utils.conf import configure
 from optparse import make_option
@@ -13,9 +12,6 @@ else:
     from django.management.commands.test import Command as TestCommand
 
 import sys
-
-TestRunner = DjangoTestSuiteRunner
-# TestRunner = make_test_runner(get_runner(settings))
 
 class Command(TestCommand):
     option_list = TestCommand.option_list + (
@@ -41,6 +37,8 @@ class Command(TestCommand):
                     help='Specifies inclusion cases (TestCaseClassName) for the job detection.'),
         make_option('--exclude', dest='exclude', default='', metavar="CLASSNAMES",
                     help='Specifies exclusion cases (TestCaseClassName) for the job detection.'),
+        make_option('--workspace', dest='workspace', metavar="WORKSPACE",
+                    help='Specifies the workspace for this build.'),
     )
     
     def handle(self, *test_labels, **options):
@@ -52,18 +50,8 @@ class Command(TestCommand):
         if 'south' in settings.INSTALLED_APPS:
             patch_for_test_db_setup()
 
-        if hasattr(TestRunner, 'func_name'):
-            # Pre 1.2 test runners were just functions,
-            # and did not support the 'failfast' option.
-            import warnings
-            warnings.warn(
-                'Function-based test runners are deprecated. Test runners should be classes with a run_tests() method.',
-                PendingDeprecationWarning
-            )
-            result = TestRunner(test_labels, **options)
-        else:
-            test_runner = TestRunner(**options)
-            result = test_runner.run_tests(test_labels)
+        test_runner = DjangoTestSuiteRunner(**options)
+        result = test_runner.run_tests(test_labels)
 
         if result:
             sys.exit(bool(result))
