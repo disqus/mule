@@ -26,7 +26,6 @@ setup(
     install_requires=[
         'celery',
         'uuid',
-        'kombu==1.1.3',
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require},
