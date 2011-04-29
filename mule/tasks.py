@@ -18,7 +18,7 @@ def join_queue(cset, name, **kwargs):
     # start consuming from default
     cset.consume()
 
-def execute_bash(workspace, name, script, **env):
+def execute_bash(workspace, name, script, **env_kwargs):
     script_path = os.path.join(workspace, name)
 
     with open(script_path, 'w') as fp:
@@ -28,8 +28,8 @@ def execute_bash(workspace, name, script, **env):
 
     # Setup our environment variables
     env = os.environ.copy()
-    env.update(**env)
-    # TODO: confirm this changes dir
+    for k, v in env_kwargs.iteritems():
+        env[k] = v
     env['CWD'] = workspace
     env['WORKSPACE'] = workspace
 
