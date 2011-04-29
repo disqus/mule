@@ -86,14 +86,14 @@ class Mule(object):
         
             # Attempt to provision workers which reported as available
             actual = []
-            for response in broadcast('mule_setup',
+            for su_response in broadcast('mule_setup',
                              arguments={'build_id': self.build_id,
                                         'workspace': self.workspace,
                                         'script': load_script(self.workspace, 'setup')},
                              destination=available[:self.max_workers],
                              reply=True,
                              timeout=0):
-                for host, message in response.iteritems():
+                for host, message in su_response.iteritems():
                     if message.get('error'):
                         self.logger.error('%s failed to setup: %s', host, message['error'])
                     elif message.get('status') == 'ok':
@@ -142,14 +142,14 @@ class Mule(object):
             self.logger.info("Tearing down %d worker(s)", len(actual))
 
             # Send off teardown task to all workers in pool
-            for response in broadcast('mule_teardown',
+            for td_response in broadcast('mule_teardown',
                                         arguments={'build_id': self.build_id,
                                                    'workspace': self.workspace,
                                                    'script': load_script(self.workspace, 'teardown')},
                                         destination=actual,
                                         reply=True
                                     ):
-                for host, message in response.iteritems():
+                for host, message in td_response.iteritems():
                     if message.get('error'):
                         self.logger.error('%s failed to teardown: %s', host, message['error'])
 
