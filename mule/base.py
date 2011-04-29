@@ -98,9 +98,9 @@ class Mule(object):
                         self.logger.error('%s failed to setup: %s', host, message['error'])
                     elif message.get('status') == 'ok':
                         actual.append(host)
-                    if (message.get('stdout') or '').strip():
+                    if message.get('stdout'):
                         self.logger.info('stdout from %s: %s', host, message['stdout'])
-                    if (message.get('stderr') or '').strip():
+                    if message.get('stderr'):
                         self.logger.info('stderr from %s: %s', host, message['stderr'])
         
             if not actual:
@@ -156,9 +156,9 @@ class Mule(object):
                 for host, message in td_response.iteritems():
                     if message.get('error'):
                         self.logger.error('%s failed to teardown: %s', host, message['error'])
-                    if (message.get('stdout') or '').strip():
+                    if message.get('stdout'):
                         self.logger.info('stdout from %s: %s', host, message['stdout'])
-                    if (message.get('stderr') or '').strip():
+                    if message.get('stderr'):
                         self.logger.info('stderr from %s: %s', host, message['stderr'])
         
         self.logger.info('Finished')
