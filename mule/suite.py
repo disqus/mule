@@ -202,7 +202,7 @@ class MuleTestLoader(object):
                     had_res = True
                     res_type = 'error'
                     sys.stdout.write(_TextTestResult.separator1 + '\n')
-                    sys.stdout.write('EXCEPTION: unknown exception (%s)\n' % (r['job'],))
+                    sys.stdout.write('EXCEPTION: unknown exception\n')
                     if r:
                         sys.stdout.write(_TextTestResult.separator1 + '\n')
                         sys.stdout.write(r.strip() + '\n')
