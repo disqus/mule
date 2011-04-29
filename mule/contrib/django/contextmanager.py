@@ -115,6 +115,13 @@ class DatabaseContextManager(BaseTestContextManager):
         else:
             old_names, mirrors = suite.setup_databases()
 
+            for db in connections:
+                connection = connections[alias]
+                
+                # Get a cursor (even though we don't need one yet). This has
+                # the side effect of initializing the test database.
+                cursor = connection.cursor()
+
         signals.post_syncdb.receivers = post_syncdb_receivers
 
         # XXX: we could truncate all tables in the teardown phase and
