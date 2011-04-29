@@ -35,7 +35,7 @@ def execute_bash(workspace, name, script, **env):
     return (stdout, stderr)
 
 @Panel.register
-def mule_provision(panel, build_id, workspace, script=None):
+def mule_provision(panel, build_id, workspace=None, script=None):
     """
     This task has two jobs:
 
