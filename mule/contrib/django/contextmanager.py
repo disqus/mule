@@ -115,13 +115,6 @@ class DatabaseContextManager(BaseTestContextManager):
         else:
             old_names, mirrors = suite.setup_databases()
 
-            for db in connections:
-                connection = connections[alias]
-                
-                # Get a cursor (even though we don't need one yet). This has
-                # the side effect of initializing the test database.
-                cursor = connection.cursor()
-
         signals.post_syncdb.receivers = post_syncdb_receivers
 
         # XXX: we could truncate all tables in the teardown phase and
@@ -129,6 +122,12 @@ class DatabaseContextManager(BaseTestContextManager):
         for app in get_apps():
             app_models = list(get_models(app, include_auto_created=True))
             for db in connections:
+                connection = connections[alias]
+                
+                # Get a cursor (even though we don't need one yet). This has
+                # the side effect of initializing the test database.
+                cursor = connection.cursor()
+                
                 all_models = [m for m in app_models if router.allow_syncdb(db, m)]
                 if not all_models:
                     continue
