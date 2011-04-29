@@ -47,7 +47,7 @@ class Mule(object):
         self.logger = logging.getLogger('mule')
         self.workspace = workspace
     
-    def process(self, jobs, runner='unit2 $TEST', setup_script=None, teardown_script=None, callback=None):
+    def process(self, jobs, runner='unit2 $TEST', callback=None):
         """
         ``jobs`` is a list of path.to.TestCase strings to process.
         
