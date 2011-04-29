@@ -99,9 +99,9 @@ class Mule(object):
                     elif message.get('status') == 'ok':
                         actual.append(host)
                     if (message.get('stdout') or '').strip():
-                        self.logger.info(message['stdout'])
+                        self.logger.info('stdout from %s: %s', host, message['stdout'])
                     if (message.get('stderr') or '').strip():
-                        self.logger.info(message['stderr'])
+                        self.logger.info('stderr from %s: %s', host, message['stderr'])
         
             if not actual:
                 # TODO: we should probably sleep/retry (assuming there were *any* workers)
@@ -157,9 +157,9 @@ class Mule(object):
                     if message.get('error'):
                         self.logger.error('%s failed to teardown: %s', host, message['error'])
                     if (message.get('stdout') or '').strip():
-                        self.logger.info(message['stdout'])
+                        self.logger.info('stdout from %s: %s', host, message['stdout'])
                     if (message.get('stderr') or '').strip():
-                        self.logger.info(message['stderr'])
+                        self.logger.info('stderr from %s: %s', host, message['stderr'])
         
         self.logger.info('Finished')
         
