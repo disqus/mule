@@ -23,14 +23,15 @@ def load_script(workspace, name):
 
     settings = conf.WORKSPACES[workspace]
 
-    if name not in settings:
+    script_setting = settings.get(name)
+    if not script_setting:
         return
 
-    if settings[name].startswith('/'):
-        with open(settings[name], 'r') as fp:
+    if script_setting.startswith('/'):
+        with open(script_setting, 'r') as fp:
             script = fp.read()
     else:
-        script = settings[name]
+        script = script_setting
     
     return script
 
