@@ -43,7 +43,7 @@ def execute_bash(workspace, name, script, **env):
         # TODO: support proper failures on bootstrap
         raise Exception(stderr)
     
-    return (stdout, stderr)
+    return (stdout.strip(), stderr.strip())
 
 @Panel.register
 def mule_setup(panel, build_id, workspace=None, script=None):
@@ -73,6 +73,8 @@ def mule_setup(panel, build_id, workspace=None, script=None):
     
     cset.cancel_by_queue(conf.DEFAULT_QUEUE)
     
+    script_result = ('', '')
+    
     if workspace:
         work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     
@@ -86,7 +88,7 @@ def mule_setup(panel, build_id, workspace=None, script=None):
         # execute
         if script:
             try:
-                execute_bash(work_path, 'setup.sh', script, BUILD_ID=build_id)
+                script_result = execute_bash(work_path, 'setup.sh', script, BUILD_ID=build_id)
             except:
                 # If our teardown fails we need to ensure we rejoin the queue
                 join_queue(cset, name=conf.DEFAULT_QUEUE)
@@ -99,6 +101,8 @@ def mule_setup(panel, build_id, workspace=None, script=None):
     return {
         "status": "ok",
         "build_id": build_id,
+        "stdout": script_result[0],
+        "stderr": script_result[1],
     }
 
 @Panel.register
@@ -121,13 +125,15 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     # stop consuming from queue
     cset.cancel_by_queue(queue_name)
     
+    script_result = ('', '')
+    
     if workspace:
         work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     
         # Create a temporary bash script in workspace, setup env, and
         # execute
         try:
-            execute_bash(work_path, 'teardown.sh', script, BUILD_ID=build_id)
+            script_result = execute_bash(work_path, 'teardown.sh', script, BUILD_ID=build_id)
         except:
             # If our teardown fails we need to ensure we rejoin the queue
             join_queue(cset, name=conf.DEFAULT_QUEUE)
@@ -140,6 +146,8 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     return {
         "status": "ok",
         "build_id": build_id,
+        "stdout": script_result[0],
+        "stderr": script_result[1],
     }
 
 
