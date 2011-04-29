@@ -42,6 +42,7 @@ class Command(TestCommand):
     )
     
     def handle(self, *test_labels, **options):
+        # HACK: ensure Django configuratio is read in
         configure(**getattr(settings, 'MULE_CONFIG', {}))
         
         settings.TEST = True

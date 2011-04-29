@@ -33,6 +33,9 @@ def load_script(workspace, name):
     else:
         script = script_setting
     
+    if not script.startswith('#!'):
+        script = '#!/usr/bin/bash\n' + script
+    
     return script
 
 class Mule(object):
@@ -82,17 +85,19 @@ class Mule(object):
                 continue
         
             # Attempt to provision workers which reported as available
-            response = {}
-            for r in broadcast('mule_provision',
-                         arguments={'build_id': self.build_id,
-                                    'workspace': self.workspace,
-                                    'script': load_script(self.workspace, 'setup')},
-                         destination=available[:self.max_workers],
-                         reply=True,
-                         timeout=0):
-                response.update(r)
-        
-            actual = [host for host, message in response.iteritems() if message.get('status') == 'ok']
+            actual = []
+            for response in broadcast('mule_setup',
+                             arguments={'build_id': self.build_id,
+                                        'workspace': self.workspace,
+                                        'script': load_script(self.workspace, 'setup')},
+                             destination=available[:self.max_workers],
+                             reply=True,
+                             timeout=0):
+                for host, message in response.iteritems():
+                    if message.get('error'):
+                        self.logger.error('%s failed to setup: %s', host, message['error'])
+                    elif message.get('status') == 'ok':
+                        actual.append(host)
         
             if not actual:
                 # TODO: we should probably sleep/retry (assuming there were *any* workers)
@@ -137,13 +142,17 @@ class Mule(object):
             self.logger.info("Tearing down %d worker(s)", len(actual))
 
             # Send off teardown task to all workers in pool
-            broadcast('mule_teardown',
-                arguments={'build_id': self.build_id,
-                           'workspace': self.workspace,
-                           'script': load_script(self.workspace, 'teardown')},
-                destination=actual,
-                reply=False
-            )
+            for response in broadcast('mule_teardown',
+                                        arguments={'build_id': self.build_id,
+                                                   'workspace': self.workspace,
+                                                   'script': load_script(self.workspace, 'teardown')},
+                                        destination=actual,
+                                        reply=True
+                                    ):
+                for host, message in response.iteritems():
+                    if message.get('error'):
+                        self.logger.error('%s failed to teardown: %s', host, message['error'])
+
         
         self.logger.info('Finished')
         

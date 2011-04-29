@@ -7,11 +7,24 @@ import subprocess
 import shlex
 import time
 
+__all__ = ('mule_setup', 'mule_teardown', 'run_test')
+
+def join_queue(cset, name, **kwargs):
+    queue = cset.add_consumer_from_dict(queue=name, **kwargs)
+    # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
+    channel = cset.channel
+    queue(channel).declare()
+
+    # start consuming from default
+    cset.consume()
+
 def execute_bash(workspace, name, script, **env):
-    with open(os.path.join(workspace, name), 'w') as fp:
+    script_path = os.path.join(workspace, name)
+
+    with open(script_path, 'w') as fp:
         fp.write(script)
 
-    cmd = 'sh %s' % (name,)
+    cmd = 'sh %s' % script_path.encode('utf-8')
 
     # Setup our environment variables
     env = os.environ.copy()
@@ -25,17 +38,15 @@ def execute_bash(workspace, name, script, **env):
 
     (stdout, stderr) = proc.communicate()
 
-    proc.wait()
-    
     # check exit code
-    if proc.retcode!= 0:
+    if proc.returncode!= 0:
         # TODO: support proper failures on bootstrap
-        raise
+        raise Exception(stderr)
     
     return (stdout, stderr)
 
 @Panel.register
-def mule_provision(panel, build_id, workspace=None, script=None):
+def mule_setup(panel, build_id, workspace=None, script=None):
     """
     This task has two jobs:
 
@@ -74,20 +85,16 @@ def mule_provision(panel, build_id, workspace=None, script=None):
         # Create a temporary bash script in workspace, setup env, and
         # execute
         if script:
-            execute_bash(work_path, 'setup.sh', script, BUILD_ID=build_id)
+            try:
+                execute_bash(work_path, 'setup.sh', script, BUILD_ID=build_id)
+            except:
+                # If our teardown fails we need to ensure we rejoin the queue
+                join_queue(cset, name=conf.DEFAULT_QUEUE)
+                raise
     
-    declaration = dict(queue=queue_name, exchange_type='direct')
-    queue = cset.add_consumer_from_dict(**declaration)
-    # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    channel = cset.channel
-    queue(channel).declare()
-    # channel = cset.connection.channel()
-    # try:
-    #     queue(channel).declare()
-    # finally:
-    #     channel.close()
-    cset.consume()
-    panel.logger.info("Started consuming from %r" % (declaration, ))
+    join_queue(cset, name=queue_name, exchange_type='direct')
+
+    panel.logger.info("Started consuming from %s", queue_name)
 
     return {
         "status": "ok",
@@ -119,15 +126,14 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     
         # Create a temporary bash script in workspace, setup env, and
         # execute
-        if script:
+        try:
             execute_bash(work_path, 'teardown.sh', script, BUILD_ID=build_id)
+        except:
+            # If our teardown fails we need to ensure we rejoin the queue
+            join_queue(cset, name=conf.DEFAULT_QUEUE)
+            raise
     
-    queue = cset.add_consumer_from_dict(queue=conf.DEFAULT_QUEUE)
-    # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
-    queue(channel).declare()
-
-    # start consuming from default
-    cset.consume()
+    join_queue(cset, name=conf.DEFAULT_QUEUE)
 
     panel.logger.info("Rejoined default queue")
 
@@ -160,8 +166,6 @@ def run_test(build_id, runner, job, callback=None):
                             env=env)
 
     (stdout, stderr) = proc.communicate()
-
-    proc.wait()
 
     stop = time.time()
 

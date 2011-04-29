@@ -3,7 +3,7 @@ from unittest2 import TestCase
 from dingus import Dingus
 from mule.base import Mule
 from mule import conf
-from mule.tasks import run_test, mule_provision, mule_teardown
+from mule.tasks import run_test, mule_setup, mule_teardown
 
 def dingus_calls_to_dict(obj):
     # remap dingus calls into a useable dict
@@ -74,7 +74,7 @@ class RunTestTestCase(TestCase):
 class PanelTestCase(TestCase):
     def test_provision(self):
         panel = Dingus('Panel')
-        result = mule_provision(panel, 1)
+        result = mule_setup(panel, 1)
 
         self.assertEquals(result, {
             "status": "fail",
@@ -85,7 +85,7 @@ class PanelTestCase(TestCase):
         queue = Dingus('Queue')
         queue.name = conf.DEFAULT_QUEUE
         panel.consumer.task_consumer.queues = [queue]
-        result = mule_provision(panel, 1)
+        result = mule_setup(panel, 1)
 
         self.assertEquals(result, {
             "status": "ok",
