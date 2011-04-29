@@ -87,10 +87,11 @@ class PanelTestCase(TestCase):
         panel.consumer.task_consumer.queues = [queue]
         result = mule_setup(panel, 1)
 
-        self.assertEquals(result, {
-            "status": "ok",
-            "build_id": 1,
-        })
+        self.assertTrue('build_id' in result)
+        self.assertEquals(result['build_id'], 1)
+
+        self.assertTrue('status' in result)
+        self.assertEquals(result['status'], 'ok')
         
         calls = dingus_calls_to_dict(panel.consumer.task_consumer.calls)
                 
@@ -113,10 +114,11 @@ class PanelTestCase(TestCase):
         panel = Dingus('Panel')
         result = mule_teardown(panel, 1)
 
-        self.assertEquals(result, {
-            "status": "ok",
-            "build_id": 1,
-        })
+        self.assertTrue('build_id' in result)
+        self.assertEquals(result['build_id'], 1)
+
+        self.assertTrue('status' in result)
+        self.assertEquals(result['status'], 'ok')
         
         calls = dingus_calls_to_dict(panel.consumer.task_consumer.calls)
                 
