@@ -104,7 +104,7 @@ General
  
 - Refactor the test discovery so that we can do full-on grep-like notation. e.g. disqus.*.api
   
-- Possibly include support for something like Zookeeper for distributed locking.
+- Support for some kind of distributed locking for shared resources (memcache? zookeeper?)
 
 Django Integration
 ------------------

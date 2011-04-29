@@ -7,8 +7,35 @@ import subprocess
 import shlex
 import time
 
+def execute_bash(workspace, name, script, **env):
+    with open(os.path.join(workspace, name), 'w') as fp:
+        fp.write(script)
+
+    cmd = 'sh %s' % (name,)
+
+    # Setup our environment variables
+    env = os.environ.copy()
+    env.update(**env)
+    # TODO: confirm this changes dir
+    env['CWD'] = workspace
+    env['WORKSPACE'] = workspace
+
+    proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            env=env)
+
+    (stdout, stderr) = proc.communicate()
+
+    proc.wait()
+    
+    # check exit code
+    if proc.retcode!= 0:
+        # TODO: support proper failures on bootstrap
+        raise
+    
+    return (stdout, stderr)
+
 @Panel.register
-def mule_provision(panel, build_id):
+def mule_provision(panel, build_id, workspace, script=None):
     """
     This task has two jobs:
 
@@ -21,6 +48,8 @@ def mule_provision(panel, build_id):
          - Setting up a virtualenv
          - Building our DB
     """
+    assert not script or workspace, "Cannot pass scripts without a workspace"
+    
     queue_name = '%s-%s' % (conf.BUILD_QUEUE_PREFIX, build_id)
 
     cset = panel.consumer.task_consumer
@@ -32,6 +61,20 @@ def mule_provision(panel, build_id):
         }
     
     cset.cancel_by_queue(conf.DEFAULT_QUEUE)
+    
+    if workspace:
+        work_path = os.path.join(conf.WORKSPACE_PATH, workspace)
+    
+        # XXX: we could send along a workspace parameter and
+        # support concurrent builds on the same machine (to an extent)
+        # Setup our workspace and run any bootstrap tasks
+        if not os.path.exists(work_path):
+            os.makedirs(work_path)
+    
+        # Create a temporary bash script in workspace, setup env, and
+        # execute
+        if script:
+            execute_bash(work_path, 'setup.sh', script, BUILD_ID=build_id)
     
     declaration = dict(queue=queue_name, exchange_type='direct')
     queue = cset.add_consumer_from_dict(**declaration)
@@ -52,7 +95,7 @@ def mule_provision(panel, build_id):
     }
 
 @Panel.register
-def mule_teardown(panel, build_id):
+def mule_teardown(panel, build_id, workspace=None, script=None):
     """
     This task has two jobs:
     
@@ -60,6 +103,8 @@ def mule_teardown(panel, build_id):
 
     2. Leaves the build-specific queue, and joins the default Mule queue.
     """
+    assert not script or workspace, "Cannot pass scripts without a workspace"
+    
     queue_name = '%s-%s' % (conf.BUILD_QUEUE_PREFIX, build_id)
 
     cset = panel.consumer.task_consumer
@@ -68,6 +113,14 @@ def mule_teardown(panel, build_id):
     channel.queue_purge(queue=queue_name)
     # stop consuming from queue
     cset.cancel_by_queue(queue_name)
+    
+    if workspace:
+        work_path = os.path.join(conf.WORKSPACE_PATH, workspace)
+    
+        # Create a temporary bash script in workspace, setup env, and
+        # execute
+        if script:
+            execute_bash(work_path, 'teardown.sh', script, BUILD_ID=build_id)
     
     queue = cset.add_consumer_from_dict(queue=conf.DEFAULT_QUEUE)
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically

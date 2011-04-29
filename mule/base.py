@@ -17,18 +17,36 @@ from mule.utils.multithreading import ThreadPool
 class FailFastInterrupt(KeyboardInterrupt):
     pass
 
+def load_script(workspace, name):
+    if workspace not in conf.WORKSPACES:
+        return
+
+    settings = conf.WORKSPACES[workspace]
+
+    if name not in settings:
+        return
+
+    if settings[name].startswith('/'):
+        with open(settings[name], 'r') as fp:
+            script = fp.read()
+    else:
+        script = settings[name]
+    
+    return script
+
 class Mule(object):
     loglevel = logging.INFO
     
-    def __init__(self, build_id=None, max_workers=None):
+    def __init__(self, workspace=None, build_id=None, max_workers=None):
         if not build_id:
             build_id = uuid.uuid4().hex
         
         self.build_id = build_id
         self.max_workers = max_workers or multiprocessing.cpu_count()
         self.logger = logging.getLogger('mule')
+        self.workspace = workspace
     
-    def process(self, jobs, runner='unit2 $TEST', callback=None):
+    def process(self, jobs, runner='unit2 $TEST', setup_script=None, teardown_script=None, callback=None):
         """
         ``jobs`` is a list of path.to.TestCase strings to process.
         
@@ -62,9 +80,15 @@ class Mule(object):
                 time.sleep(1)
                 continue
         
+            # Attempt to provision workers which reported as available
             response = {}
-            for r in broadcast('mule_provision', arguments={'build_id': self.build_id},
-                               destination=available[:self.max_workers], reply=True, timeout=0):
+            for r in broadcast('mule_provision',
+                         arguments={'build_id': self.build_id,
+                                    'workspace': self.workspace,
+                                    'script': load_script(self.workspace, 'setup')},
+                         destination=available[:self.max_workers],
+                         reply=True,
+                         timeout=0):
                 response.update(r)
         
             actual = [host for host, message in response.iteritems() if message.get('status') == 'ok']
@@ -111,7 +135,14 @@ class Mule(object):
         finally:
             self.logger.info("Tearing down %d worker(s)", len(actual))
 
-            broadcast('mule_teardown', arguments={'build_id': self.build_id}, destination=actual, reply=False)
+            # Send off teardown task to all workers in pool
+            broadcast('mule_teardown',
+                arguments={'build_id': self.build_id,
+                           'workspace': self.workspace,
+                           'script': load_script(self.workspace, 'teardown')},
+                destination=actual,
+                reply=False
+            )
         
         self.logger.info('Finished')
         
