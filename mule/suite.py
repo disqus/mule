@@ -184,7 +184,8 @@ class MuleTestLoader(object):
             skips, tests = 0, 0
 
             had_res = False
-
+            res_type = None
+            
             for r in result:
                 # XXX: stdout (which is our result) is in XML, which sucks life is easier with regexp
                 match = re.search(r'errors="(\d+)".*failures="(\d+)".*skips="(\d+)".*tests="(\d+)"', r['stdout'])
@@ -214,6 +215,7 @@ class MuleTestLoader(object):
                         xml = parseString(r['stdout'])
                     except Exception, e:
                         had_res = True
+                        res_type = 'error'
                         sys.stdout.write(_TextTestResult.separator1 + '\n')
                         sys.stdout.write('EXCEPTION: %s (%s)\n' % (e, r['job']))
                         if r['stdout']:
@@ -225,6 +227,7 @@ class MuleTestLoader(object):
                         errors += 1
                         tests += 1
                         continue
+
                     for xml_test in xml.getElementsByTagName('testcase'):
                         for xml_test_res in xml_test.childNodes:
                             if xml_test_res.nodeName not in ('failure', 'skip', 'error'):
@@ -240,7 +243,8 @@ class MuleTestLoader(object):
                             if error_msg:
                                 sys.stdout.write(_TextTestResult.separator2 + '\n')
                                 sys.stdout.write('%s\n' % error_msg)
-                    if had_res and res_type in ('failure', 'error'):
+
+                    if res_type in ('failure', 'error'):
                         syserr = (''.join(c.wholeText for c in xml.getElementsByTagName('system-err')[0].childNodes if c.nodeType == c.CDATA_SECTION_NODE)).strip()
                         if syserr:
                             sys.stdout.write(_TextTestResult.separator2 + '\n')
