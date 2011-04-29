@@ -1,8 +1,8 @@
 DEFAULT_QUEUE = 'default'
 BUILD_QUEUE_PREFIX = 'mule'
 
-# TODO: better sane defaults?
-WORKSPACE_PATH = 'workspace'
+# TODO: this should be some kind of absolute system path, and a sane default
+ROOT = 'mule'
 
 WORKSPACES = {
     'default': {

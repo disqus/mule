@@ -106,6 +106,8 @@ General
   
 - Support for some kind of distributed locking for shared resources (memcache? zookeeper?)
 
+- The Mule central log needs to see ALL events coming from servers and append it correctly (excluding test runner results)
+
 Django Integration
 ------------------
 

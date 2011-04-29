@@ -63,7 +63,7 @@ def mule_provision(panel, build_id, workspace, script=None):
     cset.cancel_by_queue(conf.DEFAULT_QUEUE)
     
     if workspace:
-        work_path = os.path.join(conf.WORKSPACE_PATH, workspace)
+        work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     
         # XXX: we could send along a workspace parameter and
         # support concurrent builds on the same machine (to an extent)
@@ -115,7 +115,7 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     cset.cancel_by_queue(queue_name)
     
     if workspace:
-        work_path = os.path.join(conf.WORKSPACE_PATH, workspace)
+        work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     
         # Create a temporary bash script in workspace, setup env, and
         # execute
