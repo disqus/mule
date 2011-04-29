@@ -189,14 +189,27 @@ class MuleTestLoader(object):
             res_type = None
             
             for r in result:
-                # XXX: stdout (which is our result) is in XML, which sucks life is easier with regexp
-                match = re.search(r'errors="(\d+)".*failures="(\d+)".*skips="(\d+)".*tests="(\d+)"', r['stdout'])
-                if match:
-                    errors += int(match.group(1))
-                    failures += int(match.group(2))
-                    skips += int(match.group(3))
-                    tests += int(match.group(4))
-
+                if isinstance(r, dict):
+                    # XXX: stdout (which is our result) is in XML, which sucks life is easier with regexp
+                    match = re.search(r'errors="(\d+)".*failures="(\d+)".*skips="(\d+)".*tests="(\d+)"', r['stdout'])
+                    if match:
+                        errors += int(match.group(1))
+                        failures += int(match.group(2))
+                        skips += int(match.group(3))
+                        tests += int(match.group(4))
+                else:
+                    # Handles cases when our runners dont return correct output
+                    had_res = True
+                    res_type = 'error'
+                    sys.stdout.write(_TextTestResult.separator1 + '\n')
+                    sys.stdout.write('EXCEPTION: unknown exception (%s)\n' % (r['job'],))
+                    if r:
+                        sys.stdout.write(_TextTestResult.separator1 + '\n')
+                        sys.stdout.write(r.strip() + '\n')
+                    errors += 1
+                    tests += 1
+                    continue
+                    
                 if self.xunit:
                     # Since we already get xunit results back, let's just write them to disk
                     if r['stdout']:
