@@ -39,8 +39,8 @@ class Command(TestCommand):
                     help='Specifies exclusion cases (TestCaseClassName) for the job detection.'),
         make_option('--workspace', dest='workspace', metavar="WORKSPACE",
                     help='Specifies the workspace for this build.'),
-        make_option('--runner', dest='runner', default='python manage.py mule --auto-bootstrap --worker --id=$BUILD_ID $TEST',
-                    metavar="RUNNER", help='Specify the test suite runner (use $TEST for path.to.TestCase substitution).'),
+        make_option('--runner', dest='runner', metavar="RUNNER",
+                    help='Specify the test suite runner (use $TEST for path.to.TestCase substitution).'),
     )
     
     def handle(self, *test_labels, **options):

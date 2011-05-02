@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from django.db.models import get_app, get_apps
 from django.test.simple import DjangoTestSuiteRunner, build_suite
 from django.test._doctest import DocTestCase
+from mule import conf
 from mule.contextmanager import register_context_manager
 from mule.contrib.django.contextmanager import DatabaseContextManager, EnvContextManager
 from mule.contrib.django.signals import post_test_setup
@@ -31,6 +32,9 @@ def mule_suite_runner(parent):
                 self.interactive = False
 
             self.db_prefix = db_prefix
+
+            if not runner and self.workspace:
+                runner = conf.WORKSPACES[self.workspace].get('runner') or DEFAULT_RUNNER
 
             self.base_cmd = runner
 

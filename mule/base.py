@@ -121,6 +121,7 @@ class Mule(object):
             taskset = TaskSet(run_test.subtask(
                 build_id=self.build_id,
                 runner=runner,
+                workspace=self.workspace,
                 job='%s.%s' % (job.__module__, job.__name__),
                 options={
                     # 'routing_key': 'mule-%s' % self.build_id,

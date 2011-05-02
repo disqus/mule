@@ -5,6 +5,7 @@ from mule import conf
 import os
 import subprocess
 import shlex
+import tempfile
 import time
 
 __all__ = ('mule_setup', 'mule_teardown', 'run_test')
@@ -19,17 +20,23 @@ def join_queue(cset, name, **kwargs):
     cset.consume()
 
 def execute_bash(workspace, name, script, **env_kwargs):
-    script_path = os.path.join(workspace, name)
+    if not workspace:
+        (h, script_path) = tempfile.mkstemp(prefix=name)
+    else:
+        script_path = os.path.join(workspace, name)
+
+    if not os.path.exists(os.path.dirname(script_path)):
+        os.makedirs(script_path)
 
     with open(script_path, 'w') as fp:
-        fp.write(script)
+        fp.write(unicode(script).encode('utf-8'))
 
     cmd = 'sh %s' % script_path.encode('utf-8')
 
     # Setup our environment variables
     env = os.environ.copy()
     for k, v in env_kwargs.iteritems():
-        env[k] = v
+        env[unicode(k).encode('utf-8')] = unicode(v).encode('utf-8')
     env['WORKSPACE'] = workspace
 
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -42,7 +49,7 @@ def execute_bash(workspace, name, script, **env_kwargs):
         # TODO: support proper failures on bootstrap
         raise Exception(stderr)
     
-    return (stdout.strip(), stderr.strip())
+    return (stdout.strip(), stderr.strip(), proc.returncode)
 
 @Panel.register
 def mule_setup(panel, build_id, workspace=None, script=None):
@@ -72,16 +79,10 @@ def mule_setup(panel, build_id, workspace=None, script=None):
     
     cset.cancel_by_queue(conf.DEFAULT_QUEUE)
     
-    script_result = ('', '')
+    script_result = ('', '', 0)
     
     if workspace:
         work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
-    
-        # XXX: we could send along a workspace parameter and
-        # support concurrent builds on the same machine (to an extent)
-        # Setup our workspace and run any bootstrap tasks
-        if not os.path.exists(work_path):
-            os.makedirs(work_path)
     
         # Create a temporary bash script in workspace, setup env, and
         # execute
@@ -102,6 +103,7 @@ def mule_setup(panel, build_id, workspace=None, script=None):
         "build_id": build_id,
         "stdout": script_result[0],
         "stderr": script_result[1],
+        "retcode": script_result[2],
     }
 
 @Panel.register
@@ -124,7 +126,7 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     # stop consuming from queue
     cset.cancel_by_queue(queue_name)
     
-    script_result = ('', '')
+    script_result = ('', '', 0)
     
     if workspace:
         work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
@@ -148,43 +150,31 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
         "build_id": build_id,
         "stdout": script_result[0],
         "stderr": script_result[1],
+        "retcode": script_result[2],
     }
 
 
 @task(ignore_result=False)
-def run_test(build_id, runner, job, callback=None):
+def run_test(build_id, runner, job, workspace=None, callback=None):
     """
     Spawns a test runner and reports the result.
     """
-    # TODO: we shouldnt need to do this, bash should do it
-    build_id = build_id.encode('utf-8')
-    job = job.encode('utf-8')
-
-    cmd = runner.encode('utf-8').replace('$TEST', job)
-    cmd = cmd.replace('$BUILD_ID', build_id)
-
-    # Setup our environment variables
-    env = os.environ.copy()
-    env['TEST'] = job
-    env['BUILD_ID'] = build_id
-    
     start = time.time()
     
-    proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            env=env)
-
-    (stdout, stderr) = proc.communicate()
+    work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
+    
+    (stdout, stderr, retcode) = execute_bash(work_path, 'test.sh', runner, BUILD_ID=build_id, TEST=job)
 
     stop = time.time()
 
     result = {
         "timeStarted": start,
         "timeFinished": stop,
-        "retcode": proc.returncode,
+        "retcode": retcode,
         "build_id": build_id,
         "job": job,
-        "stdout": stdout.strip(),
-        "stderr": stderr.strip(),
+        "stdout": stdout,
+        "stderr": stderr,
     }
 
     if callback:
