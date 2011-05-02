@@ -30,11 +30,10 @@ def execute_bash(workspace, name, script, **env_kwargs):
     env = os.environ.copy()
     for k, v in env_kwargs.iteritems():
         env[k] = v
-    env['CWD'] = workspace
     env['WORKSPACE'] = workspace
 
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            env=env)
+                            env=env, cwd=workspace)
 
     (stdout, stderr) = proc.communicate()
 
@@ -132,12 +131,13 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     
         # Create a temporary bash script in workspace, setup env, and
         # execute
-        try:
-            script_result = execute_bash(work_path, 'teardown.sh', script, BUILD_ID=build_id)
-        except:
-            # If our teardown fails we need to ensure we rejoin the queue
-            join_queue(cset, name=conf.DEFAULT_QUEUE)
-            raise
+        if script:
+            try:
+                script_result = execute_bash(work_path, 'teardown.sh', script, BUILD_ID=build_id)
+            except:
+                # If our teardown fails we need to ensure we rejoin the queue
+                join_queue(cset, name=conf.DEFAULT_QUEUE)
+                raise
     
     join_queue(cset, name=conf.DEFAULT_QUEUE)
 
