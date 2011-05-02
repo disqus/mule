@@ -13,9 +13,12 @@ from mule.loader import reorder_suite
 import unittest
 import unittest2
 
+DEFAULT_RUNNER = 'python manage.py mule --auto-bootstrap --worker --id=$BUILD_ID $TEST'
+
 def mule_suite_runner(parent):
     class new(MuleTestLoader, parent):
-        def __init__(self, auto_bootstrap=False, db_prefix='test', *args, **kwargs):
+        def __init__(self, auto_bootstrap=False, db_prefix='test', runner=DEFAULT_RUNNER,
+                     *args, **kwargs):
             MuleTestLoader.__init__(self, *args, **kwargs)
             parent.__init__(self,
                 verbosity=int(kwargs['verbosity']),
@@ -29,7 +32,7 @@ def mule_suite_runner(parent):
 
             self.db_prefix = db_prefix
 
-            self.base_cmd = 'python manage.py mule --auto-bootstrap --worker --id=$BUILD_ID $TEST'
+            self.base_cmd = runner
 
             if self.failfast:
                 self.base_cmd += ' --failfast'
