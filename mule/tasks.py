@@ -20,18 +20,12 @@ def join_queue(cset, name, **kwargs):
     cset.consume()
 
 def execute_bash(workspace, name, script, **env_kwargs):
-    if not workspace:
-        (h, script_path) = tempfile.mkstemp(prefix=name)
-    else:
-        script_path = os.path.join(workspace, name)
-
-    if not os.path.exists(os.path.dirname(script_path)):
-        os.makedirs(script_path)
+    (h, script_path) = tempfile.mkstemp(prefix=name)
 
     with open(script_path, 'w') as fp:
         fp.write(unicode(script).encode('utf-8'))
 
-    cmd = 'sh %s' % script_path.encode('utf-8')
+    cmd = '/bin/bash %s' % script_path.encode('utf-8')
 
     # Setup our environment variables
     env = os.environ.copy()
@@ -163,18 +157,18 @@ def run_test(build_id, runner, job, workspace=None, callback=None):
     
     work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     
-    (stdout, stderr, retcode) = execute_bash(work_path, 'test.sh', runner, BUILD_ID=build_id, TEST=job)
+    script_result = execute_bash(work_path, 'test.sh', runner, BUILD_ID=build_id, TEST=job)
 
     stop = time.time()
 
     result = {
         "timeStarted": start,
         "timeFinished": stop,
-        "retcode": retcode,
         "build_id": build_id,
         "job": job,
-        "stdout": stdout,
-        "stderr": stderr,
+        "stdout": script_result[0],
+        "stderr": script_result[1],
+        "retcode": script_result[2],
     }
 
     if callback:

@@ -33,9 +33,6 @@ def load_script(workspace, name):
     else:
         script = script_setting
     
-    if not script.startswith('#!'):
-        script = '#!/usr/bin/bash\n' + script
-    
     return script
 
 class Mule(object):
