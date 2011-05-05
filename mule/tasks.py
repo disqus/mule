@@ -23,6 +23,7 @@ def execute_bash(name, script, workspace=None, **env_kwargs):
     (h, script_path) = tempfile.mkstemp(prefix=name)
 
     if workspace:
+        assert conf.ROOT
         work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     else:
         work_path = None
@@ -144,7 +145,7 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
 
 
 @task(ignore_result=False)
-def run_test(build_id, runner, job, workspace=None, callback=None):
+def run_test(build_id, runner, job, callback=None, workspace=None):
     """
     Spawns a test runner and reports the result.
     """

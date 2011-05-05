@@ -267,7 +267,12 @@ class MultiProcessMule(Mule):
         self.logger.info("Building queue of %d test job(s)", len(jobs))
 
         for job in jobs:
-            pool.add(run_test, self.build_id, runner, '%s.%s' % (job.__module__, job.__name__), callback)
+            pool.add(run_test,
+                build_id=self.build_id,
+                runner=runner,
+                job='%s.%s' % (job.__module__, job.__name__),
+                callback=callback,
+            )
 
         self.logger.info("Waiting for response...")
 
