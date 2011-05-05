@@ -14,6 +14,7 @@ from mule.runners.text import TextTestRunner, _TextTestResult
 from mule.utils import import_string
 from xml.dom.minidom import parseString
 
+import logging
 import os, os.path
 import re
 import sys
@@ -29,7 +30,7 @@ class MuleTestLoader(object):
                  multiprocess=False, xunit=False, xunit_output='./xunit/',
                  include='', exclude='', max_workers=None, start_dir=None,
                  loader=defaultTestLoader, base_cmd='unit2 $TEST', 
-                 workspace=None, *args, **kwargs):
+                 workspace=None, log_level=logging.DEBUG, *args, **kwargs):
 
         assert not (distributed and worker and multiprocess), "You cannot combine --distributed, --worker, and --multiprocess"
         
@@ -52,10 +53,12 @@ class MuleTestLoader(object):
         self.max_workers = max_workers
         self.start_dir = start_dir
         self.loader = loader
+        self.logger = logging.getLogger('mule')
+        self.logger.setLevel(log_level)
         
         self.base_cmd = base_cmd
         self.workspace = workspace
-        
+    
     def run_suite(self, suite, output=None, run_callback=None):
         kwargs = {
             'verbosity': self.verbosity,
@@ -130,8 +133,12 @@ class MuleTestLoader(object):
         
         cms = list()
         for cls in get_context_managers():
+            self.logger.info('Entering context for [%r]', cls)
+            start = time.time()
             cm = cls(build_id=self.build_id, suite=self)
             cm.__enter__()
+            stop = time.time()
+            self.logger.info('Context manager opened in %.3fs', stop - start)
             cms.append(cm)
 
         try:
@@ -155,7 +162,12 @@ class MuleTestLoader(object):
                 sys.stdout = sys_stdout
             
             for cm in reversed(cms):
+                self.logger.info('Exiting context for [%r]', cls)
+                start = time.time()
                 cm.__exit__(None, None, None)
+                stop = time.time()
+                self.logger.info('Context manager closed in %.3fs', stop - start)
+                
         
         return result
 
