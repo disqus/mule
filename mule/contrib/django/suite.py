@@ -36,7 +36,7 @@ def mule_suite_runner(parent):
             if not runner and self.workspace:
                 runner = conf.WORKSPACES[self.workspace].get('runner') or DEFAULT_RUNNER
 
-            self.base_cmd = runner
+            self.base_cmd = runner or DEFAULT_RUNNER
 
             if self.failfast:
                 self.base_cmd += ' --failfast'
