@@ -2,6 +2,8 @@ from collections import defaultdict
 from Queue import Queue
 from threading import Thread
 
+import traceback
+
 _results = defaultdict(list)
 
 class Worker(Thread):
@@ -41,7 +43,7 @@ class Worker(Thread):
                     'func': func,
                     'args': args,
                     'kwargs': kwargs,
-                    'result': e,
+                    'result': traceback.format_exc(),
                 })
             finally:
                 self.tasks.task_done()
