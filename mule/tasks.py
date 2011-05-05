@@ -11,9 +11,6 @@ import traceback
 
 __all__ = ('mule_setup', 'mule_teardown', 'run_test')
 
-class CommandError(Exception):
-    pass
-
 def join_queue(cset, name, **kwargs):
     queue = cset.add_consumer_from_dict(queue=name, **kwargs)
     # XXX: There's currently a bug in Celery 2.2.5 which doesn't declare the queue automatically
@@ -23,8 +20,11 @@ def join_queue(cset, name, **kwargs):
     # start consuming from default
     cset.consume()
 
-def execute_bash(name, script, workspace=None, **env_kwargs):
+def execute_bash(name, script, workspace=None, logger=None, **env_kwargs):
     (h, script_path) = tempfile.mkstemp(prefix=name)
+    
+    if logger:
+        logger.info('Executing %s in %s', name, script_path)
 
     if workspace:
         assert conf.ROOT
@@ -43,15 +43,26 @@ def execute_bash(name, script, workspace=None, **env_kwargs):
         env[unicode(k).encode('utf-8')] = unicode(v).encode('utf-8')
     env['WORKSPACE'] = work_path
     
+    start = time.time()
+    
     try:
         proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 env=env, cwd=work_path)
+        (stdout, stderr) = map(lambda x: x.strip(), proc.communicate())
+    except KeyboardInterrupt:
+        # Ensure we propagate up the exception
+        raise
     except Exception, e:
-        return ('', 'Error running command [%s]: %s' % (cmd, traceback.format_exc()), 1)
-        
-    (stdout, stderr) = proc.communicate()
+        (stdout, stderr, returncode) =  ('', 'Error running command [%s]: %s' % (cmd, traceback.format_exc()), 1)
+    else:
+        returncode = proc.returncode
     
-    return (stdout.strip(), stderr.strip(), proc.returncode)
+    stop = time.time()
+    
+    if logger:
+        logger.info('Script execution completed in %.3fs', stop - start)
+    
+    return (stdout, stderr, returncode)
 
 @Panel.register
 def mule_setup(panel, build_id, workspace=None, script=None):
@@ -85,7 +96,13 @@ def mule_setup(panel, build_id, workspace=None, script=None):
     
     if script:
         try:
-            script_result = execute_bash('setup.sh', script, workspace, BUILD_ID=build_id)
+            script_result = execute_bash(
+                name='setup.sh',
+                script=script,
+                workspace=workspace,
+                logger=panel.logger,
+                BUILD_ID=build_id,
+            )
         except:
             # If our teardown fails we need to ensure we rejoin the queue
             join_queue(cset, name=conf.DEFAULT_QUEUE)
@@ -127,7 +144,13 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     
     if script:
         try:
-            script_result = execute_bash('teardown.sh', script, workspace, BUILD_ID=build_id)
+            script_result = execute_bash(
+                name='teardown.sh',
+                script=script,
+                workspace=workspace,
+                logger=panel.logger,
+                BUILD_ID=build_id,
+            )
         except:
             # If our teardown fails we need to ensure we rejoin the queue
             join_queue(cset, name=conf.DEFAULT_QUEUE)
@@ -153,7 +176,14 @@ def run_test(build_id, runner, job, callback=None, workspace=None):
     """
     start = time.time()
 
-    script_result = execute_bash('test.sh', runner, workspace, BUILD_ID=build_id, TEST=job)
+    script_result = execute_bash(
+        name='test.sh',
+        script=runner,
+        workspace=workspace,
+        logger=run_test.get_logger(),
+        BUILD_ID=build_id,
+        TEST=job,
+    )
 
     stop = time.time()
 
@@ -169,4 +199,5 @@ def run_test(build_id, runner, job, callback=None, workspace=None):
 
     if callback:
         callback(result)
+
     return result
