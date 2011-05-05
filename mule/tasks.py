@@ -19,8 +19,13 @@ def join_queue(cset, name, **kwargs):
     # start consuming from default
     cset.consume()
 
-def execute_bash(workspace, name, script, **env_kwargs):
+def execute_bash(name, script, workspace=None, **env_kwargs):
     (h, script_path) = tempfile.mkstemp(prefix=name)
+
+    if workspace:
+        work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
+    else:
+        work_path = None
 
     with open(script_path, 'w') as fp:
         fp.write(unicode(script).encode('utf-8'))
@@ -31,10 +36,10 @@ def execute_bash(workspace, name, script, **env_kwargs):
     env = os.environ.copy()
     for k, v in env_kwargs.iteritems():
         env[unicode(k).encode('utf-8')] = unicode(v).encode('utf-8')
-    env['WORKSPACE'] = workspace
+    env['WORKSPACE'] = work_path
 
     proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            env=env, cwd=workspace)
+                            env=env, cwd=work_path)
 
     (stdout, stderr) = proc.communicate()
 
@@ -75,18 +80,13 @@ def mule_setup(panel, build_id, workspace=None, script=None):
     
     script_result = ('', '', 0)
     
-    if workspace:
-        work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
-    
-        # Create a temporary bash script in workspace, setup env, and
-        # execute
-        if script:
-            try:
-                script_result = execute_bash(work_path, 'setup.sh', script, BUILD_ID=build_id)
-            except:
-                # If our teardown fails we need to ensure we rejoin the queue
-                join_queue(cset, name=conf.DEFAULT_QUEUE)
-                raise
+    if script:
+        try:
+            script_result = execute_bash('setup.sh', script, workspace, BUILD_ID=build_id)
+        except:
+            # If our teardown fails we need to ensure we rejoin the queue
+            join_queue(cset, name=conf.DEFAULT_QUEUE)
+            raise
     
     join_queue(cset, name=queue_name, exchange_type='direct')
 
@@ -122,18 +122,13 @@ def mule_teardown(panel, build_id, workspace=None, script=None):
     
     script_result = ('', '', 0)
     
-    if workspace:
-        work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
-    
-        # Create a temporary bash script in workspace, setup env, and
-        # execute
-        if script:
-            try:
-                script_result = execute_bash(work_path, 'teardown.sh', script, BUILD_ID=build_id)
-            except:
-                # If our teardown fails we need to ensure we rejoin the queue
-                join_queue(cset, name=conf.DEFAULT_QUEUE)
-                raise
+    if script:
+        try:
+            script_result = execute_bash('teardown.sh', script, workspace, BUILD_ID=build_id)
+        except:
+            # If our teardown fails we need to ensure we rejoin the queue
+            join_queue(cset, name=conf.DEFAULT_QUEUE)
+            raise
     
     join_queue(cset, name=conf.DEFAULT_QUEUE)
 
@@ -154,10 +149,8 @@ def run_test(build_id, runner, job, workspace=None, callback=None):
     Spawns a test runner and reports the result.
     """
     start = time.time()
-    
-    work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
-    
-    script_result = execute_bash(work_path, 'test.sh', runner, BUILD_ID=build_id, TEST=job)
+
+    script_result = execute_bash('test.sh', runner, workspace, BUILD_ID=build_id, TEST=job)
 
     stop = time.time()
 
