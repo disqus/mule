@@ -30,7 +30,7 @@ def execute_bash(name, script, workspace=None, **env_kwargs):
         assert conf.ROOT
         work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     else:
-        work_path = os.path.dirname(script_path)
+        work_path = os.getcwd()
 
     with open(script_path, 'w') as fp:
         fp.write(unicode(script).encode('utf-8'))
