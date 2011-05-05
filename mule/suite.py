@@ -205,7 +205,7 @@ class MuleTestLoader(object):
                     sys.stdout.write('EXCEPTION: unknown exception\n')
                     if r:
                         sys.stdout.write(_TextTestResult.separator1 + '\n')
-                        sys.stdout.write(r.strip() + '\n')
+                        sys.stdout.write(str(r).strip() + '\n')
                     errors += 1
                     tests += 1
                     continue
