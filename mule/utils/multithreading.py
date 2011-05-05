@@ -31,7 +31,12 @@ class Worker(Thread):
                     'result': func(*args, **kwargs),
                 })
             except KeyboardInterrupt, e:
-                # We don't record results if we hit an interrupt
+                _results[ident].append({
+                    'func': func,
+                    'args': args,
+                    'kwargs': kwargs,
+                    'result': e.args[0],
+                })
                 interrupt = True
             except Exception, e:
                 _results[ident].append({
