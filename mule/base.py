@@ -271,6 +271,7 @@ class MultiProcessMule(Mule):
                 build_id=self.build_id,
                 runner=runner,
                 job='%s.%s' % (job.__module__, job.__name__),
+                workspace=self.workspace,
                 callback=callback,
             )
 
