@@ -138,7 +138,7 @@ class Mule(object):
                     if callback:
                         callback(task_response)
             except KeyboardInterrupt, e:
-                self.logger.exception(e)
+                print '\nReceived keyboard interrupt, closing workers.\n'
         
         finally:
             self.logger.info("Tearing down %d worker(s)", len(actual))
