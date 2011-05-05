@@ -121,18 +121,18 @@ class DatabaseContextManager(BaseTestContextManager):
         #      run the syncdb steps on each iteration (to ensure compatibility w/ transactions)
         for app in get_apps():
             app_models = list(get_models(app, include_auto_created=True))
-            for db in connections:
+            for alias in connections:
                 connection = connections[alias]
                 
                 # Get a cursor (even though we don't need one yet). This has
                 # the side effect of initializing the test database.
                 cursor = connection.cursor()
                 
-                all_models = [m for m in app_models if router.allow_syncdb(db, m)]
+                all_models = [m for m in app_models if router.allow_syncdb(alias, m)]
                 if not all_models:
                     continue
                 signals.post_syncdb.send(app=app, created_models=all_models, verbosity=suite.verbosity,
-                                         db=db, sender=app, interactive=False)
+                                         db=alias, sender=app, interactive=False)
 
         self.old_config = old_names, mirrors
 
