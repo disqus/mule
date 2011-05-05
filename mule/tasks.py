@@ -7,8 +7,12 @@ import subprocess
 import shlex
 import tempfile
 import time
+import traceback
 
 __all__ = ('mule_setup', 'mule_teardown', 'run_test')
+
+class CommandError(Exception):
+    pass
 
 def join_queue(cset, name, **kwargs):
     queue = cset.add_consumer_from_dict(queue=name, **kwargs)
@@ -26,7 +30,7 @@ def execute_bash(name, script, workspace=None, **env_kwargs):
         assert conf.ROOT
         work_path = os.path.join(conf.ROOT, 'workspaces', workspace)
     else:
-        work_path = None
+        work_path = os.path.dirname(script_path)
 
     with open(script_path, 'w') as fp:
         fp.write(unicode(script).encode('utf-8'))
@@ -38,16 +42,14 @@ def execute_bash(name, script, workspace=None, **env_kwargs):
     for k, v in env_kwargs.iteritems():
         env[unicode(k).encode('utf-8')] = unicode(v).encode('utf-8')
     env['WORKSPACE'] = work_path
-
-    proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            env=env, cwd=work_path)
-
+    
+    try:
+        proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                env=env, cwd=work_path)
+    except Exception, e:
+        return ('', 'Error running command [%s]: %s' % (cmd, traceback.format_exc()), 1)
+        
     (stdout, stderr) = proc.communicate()
-
-    # check exit code
-    if proc.returncode!= 0:
-        # TODO: support proper failures on bootstrap
-        raise Exception(stderr)
     
     return (stdout.strip(), stderr.strip(), proc.returncode)
 
