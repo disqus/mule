@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from django.conf import settings
 from mule.tasks import *
 from mule.utils.conf import configure
