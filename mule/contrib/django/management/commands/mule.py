@@ -9,7 +9,7 @@ if 'south' in settings.INSTALLED_APPS:
     from south.management.commands.test import Command as TestCommand
     from south.management.commands import patch_for_test_db_setup
 else:
-    from django.management.commands.test import Command as TestCommand
+    from django.core.management.commands.test import Command as TestCommand
 
 import sys
 
