@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 def import_string(import_name, silent=False):
     """Imports an object based on a string. If *silent* is True the return
     value will be None if the import fails.
